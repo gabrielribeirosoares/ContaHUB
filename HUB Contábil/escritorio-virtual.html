@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ContaHub — Escritório Virtual</title>
+  <link rel="shortcut icon" href="assets/favicon.ico.png" type="image/x-icon">
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="css/dashboard.css?v=3">
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+</head>
+
+<body>
+
+  <div id="loading-overlay">
+    <div class="load-logo" style="display:flex;align-items:center;gap:12px;">
+      <img src="assets/logo-contahub.png" alt="ContaHub"
+        style="width:52px;height:52px;border-radius:14px;object-fit:cover;box-shadow:0 4px 20px rgba(201,168,76,.3);">
+      ContaHub
+    </div>
+    <div class="load-spinner"></div>
+  </div>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" title="Menu">☰</button>
+      <div class="logo">
+        <div class="logo-icon" style="background:none;padding:0;overflow:hidden;">
+          <img src="assets/logo-contahub.png" alt="ContaHub"
+            style="width:100%;height:100%;object-fit:cover;border-radius:6px;">
+        </div>
+        ContaHub
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="date-badge" id="live-date"></span>
+      <div class="topbar-user" onclick="openProfile()" title="Editar Perfil">
+        <div class="avatar" id="user-avatar" style="background:#3a4060">?</div>
+        <span id="user-name"><span id="user-name-text">...</span></span>
+      </div>
+      <button class="btn-rp-toggle" onclick="toggleRightPanel()" title="Estatísticas / Agenda">📊</button>
+      <button class="btn-theme-toggle" id="btn-theme" onclick="toggleTheme()" title="Alternar tema">🌙</button>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Canais</div>
+        <div class="channel-item active" data-channel="geral" onclick="switchChannel(this);closeSidebar();"
+          id="btn-chan-geral">
+          <span class="channel-icon">#</span> Chat Geral <span class="unread-badge"></span>
+        </div>
+        <div class="channel-item" data-channel="fiscal" onclick="switchChannel(this);closeSidebar();"
+          id="btn-chan-fiscal">
+          <span class="channel-icon">#</span> Dep. Fiscal <span class="unread-badge"></span>
+        </div>
+        <div class="channel-item" data-channel="dp" onclick="switchChannel(this);closeSidebar();" id="btn-chan-dp">
+          <span class="channel-icon">#</span> Dep. Pessoal <span class="unread-badge"></span>
+        </div>
+        <div class="channel-item" data-channel="contabil" onclick="switchChannel(this);closeSidebar();"
+          id="btn-chan-contabil">
+          <span class="channel-icon">#</span> Dep. Contábil <span class="unread-badge"></span>
+        </div>
+      </div>
+      <div class="sidebar-section" style="margin-top:8px">
+        <div class="sidebar-label">Equipe Online (Mensagem Direta)</div>
+      </div>
+      <div class="user-list" id="users-sidebar"></div>
+    </div>
+
+    <div class="main-area">
+      <div class="main-tabs">
+        <button class="tab-btn" onclick="switchTab('chat',this)"><i class="fas fa-comments"></i> Chat</button>
+        <button class="tab-btn" onclick="switchTab('mural',this)"><i class="fas fa-thumbtack"></i> Mural</button>
+        <button class="tab-btn" onclick="switchTab('tarefas',this)"><i class="fas fa-check-double"></i> Tarefas</button>
+        <button class="tab-btn" onclick="switchTab('agenda',this)"><i class="fas fa-calendar-alt"></i> Agenda</button>
+        <button class="tab-btn" onclick="switchTab('clientes',this)"><i class="fas fa-building"></i> Clientes</button>
+        <button class="tab-btn" onclick="switchTab('mapa',this)"><i class="fas fa-map-marked-alt"></i> Mapa</button>
+        <button class="tab-btn" id="btn-tab-usuarios" onclick="switchTab('usuarios',this)" style="display:none"><i
+            class="fas fa-users-cog"></i> Usuários</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-chat">
+        <div class="chat-header-bar">
+          <span id="chat-header-title">💬 #geral</span>
+          <button class="btn-clear-chat" onclick="clearChat()">🗑️ Limpar</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-empty" id="chat-empty">
+            <span style="font-size:2rem">💬</span>
+            <span>Seja o primeiro a escrever em <strong>#geral</strong></span>
+          </div>
+        </div>
+        <div class="typing-indicator" id="typing-indicator">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span id="typing-text"></span>
+        </div>
+        <div class="chat-input-area">
+          <div class="reply-preview" id="reply-preview">
+            <div style="font-weight:600;color:var(--accent2);margin-bottom:2px" id="reply-name"></div>
+            <div style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="reply-text">
+            </div>
+            <div class="close-reply" onclick="cancelReply()">✕</div>
+          </div>
+          <div class="chat-input-wrap" style="position: relative;">
+            <button class="attach-btn" id="btn-emoji" title="Adicionar Emoji"><i class="far fa-smile"></i></button>
+            <button class="attach-btn" onclick="document.getElementById('chat-file-input').click()"
+              title="Anexar Arquivo"><i class="fas fa-paperclip"></i></button>
+            <input type="file" id="chat-file-input" style="display:none" onchange="uploadFile(event)">
+            <input type="text" id="chat-input" class="chat-input" placeholder="Digite uma mensagem..."
+              autocomplete="off">
+            <button class="send-btn" id="btn-send-msg" disabled><i class="fas fa-paper-plane"></i></button>
+            <div id="emoji-picker-container"
+              style="display: none; position: absolute; bottom: 100%; left: 0; z-index: 2000; margin-bottom: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); border-radius: 10px; overflow: hidden;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-mural">
+        <div class="mural-area" id="mural-area">
+          <div class="chat-empty" id="mural-empty" style="margin-top:40px">
+            <span style="font-size:2rem">📌</span>
+            <span>Nenhum aviso ainda. Publique o primeiro!</span>
+          </div>
+        </div>
+        <div class="mural-add">
+          <input id="notice-title" autocomplete="off" placeholder="Título do aviso" style="flex:2;min-width:140px">
+          <input id="notice-body" autocomplete="off" placeholder="Descrição…" style="flex:3;min-width:160px">
+          <select id="notice-type">
+            <option value="geral">📌 Geral</option>
+            <option value="urgente">🔴 Urgente</option>
+            <option value="info">🔵 Info</option>
+            <option value="sucesso">✅ Concluído</option>
+          </select>
+          <select id="notice-sector">
+            <option value="todos">📢 Todos os Setores</option>
+            <option value="fiscal">Dep. Fiscal</option>
+            <option value="dp">Dep. Pessoal</option>
+            <option value="contabil">Dep. Contábil</option>
+          </select>
+          <button class="btn-post" onclick="addNotice()">Publicar</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-tarefas">
+        <div class="sector-tabs" id="task-sector-tabs"></div>
+        <div style="padding: 10px 16px 0; display: flex; gap: 8px;">
+          <button onclick="applyTaskFilter('todas', this)" class="btn-post filter-btn"
+            style="background: rgba(201, 168, 76, 0.15); color: var(--accent2); border: 1px solid var(--accent);">📋
+            Todas</button>
+          <button onclick="applyTaskFilter('minhas', this)" class="btn-post filter-btn"
+            style="background: var(--surface); color: var(--text); border: 1px solid var(--border);">👤 Minhas
+            Tarefas</button>
+          <button onclick="applyTaskFilter('atrasadas', this)" class="btn-post filter-btn"
+            style="background: var(--surface); color: var(--red); border: 1px solid var(--red);">⚠️ Atrasadas</button>
+        </div>
+        <div id="task-due-alerts-current" style="padding: 12px 16px 0; display: none;"></div>
+        <div class="tasks-area">
+          <div class="kanban">
+            <div>
+              <div class="kanban-head"><span>A Fazer</span><span class="col-count" id="count-todo">0</span></div>
+              <div id="col-todo"></div>
+            </div>
+            <div>
+              <div class="kanban-head"><span>Em Andamento</span><span class="col-count" id="count-prog">0</span></div>
+              <div id="col-prog"></div>
+            </div>
+            <div>
+              <div class="kanban-head"><span>Concluído</span><span class="col-count" id="count-done">0</span></div>
+              <div id="col-done"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tasks-add">
+          <input id="task-title" placeholder="Nova tarefa…" autocomplete="off" style="flex:3;min-width:160px">
+
+          <select id="task-tag-sel">
+            <option value="fiscal">Dep. Fiscal</option>
+            <option value="dp">Dep. Pessoal</option>
+            <option value="contabil">Dep. Contábil</option>
+          </select>
+          <select id="task-client-sel" style="flex:1; min-width:120px;">
+            <option value="">Sem cliente</option>
+          </select>
+          <select id="task-col-sel">
+            <option value="todo">A Fazer</option>
+            <option value="prog">Em Andamento</option>
+          </select>
+          <input type="date" id="task-due" title="Vencimento" style="flex:1;min-width:120px">
+          <button class="btn-post" onclick="addTask()">+ Tarefa</button>
+          <input type="file" id="import-task-file" style="display:none" accept=".xlsx, .xls, .csv"
+            onchange="importarPlanilhaTarefas(event)">
+          <button class="btn-post" onclick="document.getElementById('import-task-file').click()"
+            style="background: var(--surface); color: var(--text); border: 1px solid var(--border);"
+            title="Importar Planilha">📥</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-agenda">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 0;">
+          <div class="sector-tabs" id="agenda-sector-tabs" style="padding: 0;"></div>
+          <button class="btn-post" id="btn-gerar-tarefas" onclick="gerarTarefasMensais()"
+            style="background: var(--blue); display: none;">⚙️ Gerar Vencimentos do Mês</button>
+        </div>
+        <div class="mural-area" id="agenda-manager-list"></div>
+        <div class="agenda-add-wrap">
+          <input id="agenda-title" autocomplete="off" placeholder="Obrigação (ex: EFD Contribuições)"
+            class="agenda-input" style="width:100%">
+          <div class="agenda-row">
+            <input type="date" id="agenda-date" class="agenda-input" title="Data de Vencimento">
+            <select id="agenda-recurrence" class="agenda-input">
+              <option value="Única">Sem Repetição</option>
+              <option value="Mensal">Mensal</option>
+              <option value="Anual">Anual</option>
+            </select>
+            <select id="agenda-adjustment" class="agenda-input">
+              <option value="Manter">Dia Fixo (Manter)</option>
+              <option value="Antecipar">Antecipar se FDS/Feriado</option>
+              <option value="Postergar">Postergar se FDS/Feriado</option>
+            </select>
+            <select id="agenda-color" class="agenda-input">
+              <option value="var(--red)">🔴 Urgente</option>
+              <option value="var(--accent)">🟡 Atenção</option>
+              <option value="var(--blue)">🔵 Info</option>
+              <option value="var(--green)">🟢 Ok</option>
+            </select>
+          </div>
+          <select id="agenda-sector" class="agenda-input">
+            <option value="fiscal">Dep. Fiscal</option>
+            <option value="dp">Dep. Pessoal</option>
+            <option value="contabil">Dep. Contábil</option>
+          </select>
+          <button class="btn-post" onclick="addAgendaItem()" style="width:100%">Adicionar à Agenda</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-clientes">
+        <div class="users-admin-header" style="border-bottom: 1px solid var(--border); padding: 16px 20px;">
+          <h2>🏢 Carteira de Clientes</h2>
+        </div>
+        <div class="mural-area" id="client-list-area" style="flex:1; overflow-y:auto; padding:16px;"></div>
+        <div class="mural-add" style="border-top: 1px solid var(--border); padding: 16px;">
+          <input id="client-razao" placeholder="Razão Social" style="flex:2; min-width:140px;">
+          <input id="client-cnpj" placeholder="CNPJ" style="flex:1; min-width:120px;" maxlength="18"
+            oninput="let v=this.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2');v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');v=v.replace(/(\d{4})(\d)/,'$1-$2');this.value=v;">
+          <select id="client-regime" style="flex:1;">
+            <option value="Simples Nacional">Simples Nacional</option>
+            <option value="Lucro Presumido">Lucro Presumido</option>
+            <option value="Lucro Real">Lucro Real</option>
+            <option value="MEI">MEI</option>
+          </select>
+          <input id="client-codigo" placeholder="Cód. Cliente" style="flex:1; min-width:100px;">
+          <input id="client-filial" placeholder="Filial (ex: 0001)" style="flex:1; min-width:100px;">
+          <button class="btn-post" onclick="addClient()">+ Cliente</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-perfil">
+        <div class="profile-area">
+          <h2>Configurações do Perfil</h2>
+          <div class="profile-form">
+            <div class="form-group"><label>Nome</label><input type="text" id="prof-name" placeholder="Seu nome"></div>
+            <div class="form-group"><label>Sobrenome</label><input type="text" id="prof-surname"
+                placeholder="Seu sobrenome"></div>
+            <div class="form-group">
+              <label>Cargo / Setor</label>
+              <select id="prof-role">
+                <option value="">Selecione...</option>
+                <option value="fiscal">Dep. Fiscal</option>
+                <option value="dp">Dep. Pessoal</option>
+                <option value="contabil">Dep. Contábil</option>
+                <option value="gestor">Gestor</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Cor do Avatar</label><input type="color" id="prof-color"></div>
+            <button class="btn-post" style="margin-top:10px;padding:12px" onclick="updateProfile()">Salvar
+              Alterações</button>
+            <div id="prof-feedback" style="margin-top:8px;font-size:13px;color:var(--green);display:none">✅ Perfil
+              atualizado com sucesso!</div>
+
+            <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
+              <h3 style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:14px;">🔒 Alterar Senha</h3>
+              <input type="text" style="display:none" aria-hidden="true">
+              <input type="password" style="display:none" aria-hidden="true">
+              <div class="form-group">
+                <label>SENHA ATUAL</label>
+                <input type="password" id="prof-current-pw" placeholder="Digite sua senha atual" autocomplete="off"
+                  readonly onfocus="this.removeAttribute('readonly')">
+              </div>
+              <div class="form-group">
+                <label>NOVA SENHA</label>
+                <input type="password" id="prof-new-pw" placeholder="Mínimo 6 caracteres" autocomplete="off" readonly
+                  onfocus="this.removeAttribute('readonly')">
+              </div>
+              <div class="form-group">
+                <label>CONFIRMAR NOVA SENHA</label>
+                <input type="password" id="prof-confirm-pw" placeholder="Repita a nova senha" autocomplete="off"
+                  readonly onfocus="this.removeAttribute('readonly')">
+              </div>
+              <button class="btn-post"
+                style="margin-top:4px;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);"
+                onclick="updatePassword()">Alterar Senha</button>
+              <div id="pw-feedback" style="margin-top:8px;font-size:13px;display:none"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-mapa" style="position: relative;">
+        <div class="users-admin-header" style="border-bottom: 1px solid var(--border); padding: 16px 20px;">
+          <h2>🗺️ Escritório Virtual</h2>
+          <span style="font-size:12px;color:var(--muted)">Use as setas (ou W A S D) no PC, ou o Joystick no
+            celular.</span>
+        </div>
+        <div style="padding: 16px 16px 0 16px;">
+          <div id="map-status-bar" class="map-status-bar"></div>
+        </div>
+        <div class="map-container">
+          <div id="virtual-office-map"></div>
+        </div>
+        <div id="mobile-controls" class="mobile-controls">
+          <div class="joystick-zone">
+            <div class="joystick-base" id="joystick-base">
+              <div class="joystick-stick" id="joystick-stick"></div>
+            </div>
+          </div>
+          <button id="btn-enter-room" class="btn-enter-room">
+            <i class="fas fa-sign-in-alt"></i> <span>Entrar</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-usuarios">
+        <div class="users-admin-wrap">
+          <div class="users-admin-header">
+            <h2>👥 Gestão de Usuários</h2>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:12px;color:var(--muted)" id="users-count-label"></span>
+              <button class="btn-post" style="padding:7px 16px;font-size:13px" onclick="openCreateUser()">+ Novo
+                Usuário</button>
+            </div>
+          </div>
+          <div class="users-admin-body">
+            <div class="users-list-col" id="users-admin-list">
+              <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">Carregando usuários...
+              </div>
+            </div>
+            <div class="users-form-col">
+              <div id="uform-create" style="display:none">
+                <h3
+                  style="font-size:14px;font-weight:600;color:var(--accent2);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+                  ➕ Novo Usuário</h3>
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nome</label>
+                  <input type="text" id="new-user-name" class="agenda-input" style="width:100%" placeholder="Nome">
+                </div>
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Sobrenome</label>
+                  <input type="text" id="new-user-surname" class="agenda-input" style="width:100%"
+                    placeholder="Sobrenome">
+                </div>
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">E-mail</label>
+                  <input type="email" id="new-user-email" autocomplete="off" class="agenda-input" style="width:100%"
+                    placeholder="email@exemplo.com">
+                </div>
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Senha</label>
+                  <input type="password" id="new-user-pass" autocomplete="new-password" class="agenda-input"
+                    style="width:100%" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cargo / Setor</label>
+                  <select id="new-user-role" class="agenda-input" style="width:100%">
+                    <option value="">Selecione...</option>
+                    <option value="fiscal">Dep. Fiscal</option>
+                    <option value="dp">Dep. Pessoal</option>
+                    <option value="contabil">Dep. Contábil</option>
+                    <option value="gestor">Gestor</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom:14px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cor do Avatar</label>
+                  <input type="color" id="new-user-color" value="#3a4060" class="agenda-input"
+                    style="width:100%;height:38px;padding:2px 6px">
+                </div>
+                <button class="btn-post" style="width:100%" onclick="createUser()">Criar Usuário</button>
+                <button onclick="cancelCreateUser()"
+                  style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;">Cancelar</button>
+                <div id="new-user-feedback" style="margin-top:8px;font-size:12px;display:none"></div>
+              </div>
+
+              <h3 id="uform-title">✏️ Editar Usuário</h3>
+              <div id="uform-wrap" style="display:none">
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nome completo</label>
+                  <input type="text" id="uform-name" class="agenda-input" style="width:100%"
+                    placeholder="Nome do usuário">
+                </div>
+                <div class="form-group" style="margin-bottom:10px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cargo / Setor</label>
+                  <select id="uform-role" class="agenda-input" style="width:100%">
+                    <option value="">Selecione...</option>
+                    <option value="fiscal">Dep. Fiscal</option>
+                    <option value="dp">Dep. Pessoal</option>
+                    <option value="contabil">Dep. Contábil</option>
+                    <option value="gestor">Gestor</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom:14px">
+                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cor do Avatar</label>
+                  <input type="color" id="uform-color" class="agenda-input"
+                    style="width:100%;height:38px;padding:2px 6px">
+                </div>
+                <button class="btn-post" style="width:100%" onclick="saveUserEdit()">💾 Salvar Alterações</button>
+                <button onclick="cancelUserEdit()"
+                  style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;">Cancelar</button>
+                <div id="uform-feedback" style="margin-top:8px;font-size:12px;color:var(--green);display:none">✅ Salvo
+                  com sucesso!</div>
+              </div>
+
+              <div id="uform-placeholder" style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0">
+                <div style="font-size:2rem;margin-bottom:8px">👆</div>
+                Selecione um usuário para editar<br>ou clique em <strong>+ Novo Usuário</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="right-panel" id="right-panel">
+      <div class="rp-section">
+        <div class="rp-title">Estatísticas</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-val" id="stat-tasks">0</div>
+            <div class="stat-label">Tarefas abertas</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="stat-notices">0</div>
+            <div class="stat-label">Avisos ativos</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="stat-msgs">0</div>
+            <div class="stat-label">Msgs hoje</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="stat-members">0</div>
+            <div class="stat-label">Membros</div>
+          </div>
+        </div>
+      </div>
+      <div class="rp-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <div class="rp-title">Agenda de Obrigações</div>
+        <div class="rp-scroll" id="right-panel-agenda"></div>
+      </div>
+    </div>
+
+  </div>
+  <div id="task-edit-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;">
+    <div
+      style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px 24px;width:min(500px,92vw);display:flex;flex-direction:column;gap:10px;box-shadow:0 24px 60px rgba(0,0,0,.5);">
+      <h3 style="font-family:'DM Serif Display',serif;font-size:1.2rem;margin:0 0 6px 0;">Editar Tarefa</h3>
+      <input id="edit-task-title" type="text" placeholder="Título da tarefa"
+        style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13.5px;padding:10px 12px;outline:none;width:100%;box-sizing:border-box;">
+
+      <div style="margin-top: 8px;">
+        <select id="edit-task-client"
+          style="width:100%; background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;cursor:pointer;">
+          <option value="">Sem cliente selecionado</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <div style="display:flex; gap:8px; width: 100%;">
+          <select id="edit-task-tag"
+            style="flex:1; background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;cursor:pointer;">
+            <option value="fiscal">Dep. Fiscal</option>
+            <option value="dp">Dep. Pessoal</option>
+            <option value="contabil">Dep. Contábil</option>
+          </select>
+          <select id="edit-task-col"
+            style="flex:1; background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;cursor:pointer;">
+            <option value="todo">A Fazer</option>
+            <option value="prog">Em Andamento</option>
+            <option value="done">Concluído</option>
+          </select>
+          <input type="date" id="edit-task-due" title="Vencimento"
+            style="flex:1; background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:8px 12px;outline:none;cursor:pointer;">
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 14px;">
+        <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:8px; font-weight:600;">☑
+          Subtarefas (Checklist)</label>
+        <div id="edit-task-checklist-container"
+          style="display:flex; flex-direction:column; gap:8px; max-height: 140px; overflow-y: auto; margin-bottom: 12px; padding-right: 4px;">
+        </div>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="edit-task-new-check" placeholder="Nova etapa (ex: Fechar ponto)..." autocomplete="off"
+            style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; padding:8px 12px; outline:none;"
+            onkeydown="if(event.key==='Enter') addChecklistItem()">
+          <button onclick="addChecklistItem()"
+            style="background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:0 14px; cursor:pointer; font-weight:bold; transition:all 0.15s;">+</button>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label style="font-size:12px; color:var(--muted); font-weight:600;">📎 Anexos</label>
+          <button onclick="document.getElementById('task-file-input').click()"
+            style="background:none; border:none; color:var(--accent2); font-size:12px; cursor:pointer;">+ Adicionar
+            Arquivo</button>
+          <input type="file" id="task-file-input" style="display:none" onchange="uploadTaskFile(event)">
+        </div>
+        <div id="edit-task-attachments-container"
+          style="display:flex; flex-direction:column; gap:6px; max-height: 100px; overflow-y: auto; padding-right: 4px;">
+        </div>
+      </div>
+
+      <input type="hidden" id="edit-task-id">
+
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn-post" onclick="saveTaskEdit()"
+          style="flex:1;padding:10px;background:linear-gradient(135deg,var(--accent),#a07830);color:#0f1117;font-weight:700;font-size:13px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;">Salvar
+          Tarefa</button>
+        <button onclick="closeEditTask()"
+          style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;font-family:inherit;font-size:13px;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="client-edit-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;">
+    <div
+      style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px 24px;width:min(500px,92vw);display:flex;flex-direction:column;gap:10px;box-shadow:0 24px 60px rgba(0,0,0,.5);">
+      <h3 style="font-family:'DM Serif Display',serif;font-size:1.2rem;margin:0 0 6px 0;">Editar Cliente</h3>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Razão Social</label>
+        <input type="text" id="edit-client-razao" class="agenda-input" style="width:100%">
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <div class="form-group" style="flex:2;">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">CNPJ</label>
+          <input type="text" id="edit-client-cnpj" class="agenda-input" style="width:100%" maxlength="18">
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Regime</label>
+          <select id="edit-client-regime" class="agenda-input" style="width:100%">
+            <option value="Simples Nacional">Simples Nacional</option>
+            <option value="Lucro Presumido">Lucro Presumido</option>
+            <option value="Lucro Real">Lucro Real</option>
+            <option value="MEI">MEI</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <div class="form-group" style="flex:1;">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cód. Cliente</label>
+          <input type="text" id="edit-client-codigo" class="agenda-input" style="width:100%">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Filial</label>
+          <input type="text" id="edit-client-filial" class="agenda-input" style="width:100%">
+        </div>
+      </div>
+
+      <input type="hidden" id="edit-client-id">
+
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn-post" onclick="saveClientEdit()" style="flex:1;padding:10px;">Salvar Alterações</button>
+        <button onclick="closeClientEdit()"
+          style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;font-family:inherit;font-size:13px;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="agenda-edit-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;">
+    <div
+      style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px 24px;width:min(500px,92vw);display:flex;flex-direction:column;gap:10px;box-shadow:0 24px 60px rgba(0,0,0,.5);">
+      <h3 style="font-family:'DM Serif Display',serif;font-size:1.2rem;margin:0 0 6px 0;">Editar Compromisso</h3>
+
+      <div class="form-group" style="margin-top: 8px;">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Título do
+          Evento/Obrigação</label>
+        <input type="text" id="edit-agenda-title" class="agenda-input" placeholder="Ex: Fechamento Folha de Pagamento"
+          style="width:100%">
+      </div>
+
+      <div class="agenda-row" style="margin-top: 8px; display:flex; gap:8px;">
+        <div class="form-group" style="flex:1;">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Data</label>
+          <input type="date" id="edit-agenda-date" class="agenda-input" style="width:100%">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Setor / Categoria</label>
+          <select id="edit-agenda-tag" class="agenda-input" style="width:100%">
+            <option value="geral">Geral (Todos)</option>
+            <option value="fiscal">Dep. Fiscal</option>
+            <option value="dp">Dep. Pessoal</option>
+            <option value="contabil">Dep. Contábil</option>
+          </select>
+        </div>
+      </div>
+
+      <input type="hidden" id="edit-agenda-id">
+
+      <div style="display:flex; gap:8px; margin-top:20px;">
+        <button class="btn-post" onclick="saveAgendaEdit()" style="flex:1; padding:12px;">Salvar Alterações</button>
+        <button onclick="closeAgendaEdit()"
+          style="flex:1; padding:12px; background:none; border:1px solid var(--border); border-radius:8px; color:var(--muted); cursor:pointer; font-family:inherit; font-size:13px; font-weight:600;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="startup-alert"
+    style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:99999; align-items:center; justify-content:center; pointer-events:all;">
+    <div
+      style="background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 30px 26px 24px; width: min(500px, 92vw); max-height: 80vh; overflow-y: auto; box-shadow: 0 32px 80px rgba(0,0,0,.7); display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:1.35rem;display:flex;align-items:center;gap:10px;">📋
+        Resumo de Tarefas</div>
+      <div id="startup-alert-body">
+        <div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Carregando...</div>
+      </div>
+      <button onclick="closeStartupAlert()"
+        style="width: 100%; padding: 12px; background: linear-gradient(135deg, var(--accent), #a07830); color: #0f1117; font-weight: 700; font-size: 14px; border: none; border-radius: 10px; cursor: pointer; transition: opacity .15s;">Entendido
+        →</button>
+    </div>
+  </div>
+
+  <div id="image-lightbox"
+    style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; flex-direction:column; backdrop-filter:blur(5px); opacity:0; transition: opacity 0.3s ease;">
+    <button onclick="closeLightbox()"
+      style="position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:40px; cursor:pointer; line-height:1; transition: color 0.2s;">&times;</button>
+    <img id="lightbox-img" src=""
+      style="max-width:90%; max-height:85vh; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.5); object-fit:contain; transform: scale(0.95); transition: transform 0.3s ease;">
+  </div>
+
+  <audio id="som-passos" src="sounds/step.mp3" preload="auto"></audio>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/kanban-mural.js?v=3"></script>
+  <script src="js/agenda-clientes.js?v=2"></script>
+  <script src="js/mapa-virtual.js?v=10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ContaHUB — Acesso</title>
+<link href="assets/favicon.ico.png" rel="shortcut icon" type="image/x-icon"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&amp;family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&amp;display=swap" rel="stylesheet"/>
+
+<link rel="stylesheet" href="css/login.css">
+
+</head>
+<body>
+<button aria-label="Alternar tema" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" type="button">
+<span class="icon-light">☀️</span>
+<span class="toggle-text">Modo claro</span>
+<span class="icon-dark">🌙</span>
+</button>
+<div class="bg-mesh">
+<div class="bg-grid"></div>
+</div>
+<div class="split">
+<div class="brand-panel">
+<div class="brand-logo">
+<div class="logo-box">
+<img alt="Logo ContaHub" src="assets/logo-contahub.png"/>
+</div>
+<span class="logo-name">ContaHUB</span>
+</div>
+<div>
+<div class="brand-tagline">Seu escritório<br/><em>sempre conectado</em></div>
+<div class="brand-desc">Plataforma interna para comunicação, avisos e gestão de tarefas do seu escritório de
+          contabilidade.</div>
+<div class="brand-features">
+<div class="feat-item">
+<div class="feat-dot"></div>Chat por canal em tempo real
+          </div>
+<div class="feat-item">
+<div class="feat-dot"></div>Mural de avisos compartilhado
+          </div>
+<div class="feat-item">
+<div class="feat-dot"></div>Quadro Kanban de tarefas
+          </div>
+<div class="feat-item">
+<div class="feat-dot"></div>Dados salvos na nuvem (Firebase)
+          </div>
+</div>
+</div>
+<div class="brand-footer">© 2025 ContaHUB · Escritório Virtual</div>
+</div>
+<div class="form-panel">
+
+<div class="form-view active" id="form-login">
+<div class="form-title">Bem-vindo de volta</div>
+<div class="form-subtitle">Acesse sua conta para entrar no escritório</div>
+<div aria-live="polite" class="feedback" id="login-feedback"></div>
+<div class="field">
+<label for="login-email">E-mail</label>
+<div class="field-wrap">
+<span class="field-icon">✉️</span>
+<input autocomplete="email" id="login-email" oninput="clearLoginFieldError('login-email')" placeholder="seu@email.com" type="email"/>
+</div>
+</div>
+<div class="field">
+<label for="login-password">Senha</label>
+<div class="field-wrap">
+<span class="field-icon">🔒</span>
+<input autocomplete="current-password" id="login-password" oninput="clearLoginFieldError('login-password')" onkeydown="if(event.key==='Enter') doLogin()" placeholder="••••••••" type="password"/>
+<button class="pw-toggle" onclick="togglePw('login-password',this)" tabindex="-1" type="button">👁️</button>
+</div>
+</div>
+<button class="btn-primary" id="btn-login" onclick="doLogin()" type="button">Entrar no escritório →</button>
+</div>
+
+</div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>
+</body>
+</html>
