@@ -103,7 +103,7 @@ async function doLogin() {
 
   const btn = document.getElementById('btn-login');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Entrando…';
+  btn.textContent = 'Entrando…';
 
   try {
     await auth.signInWithEmailAndPassword(email, password);
@@ -130,10 +130,10 @@ function applyTheme(theme) {
 
   const btn = document.getElementById('theme-toggle');
   if (btn) {
-    btn.innerHTML = isLight
-      ? '<span class="icon-dark">🌙</span><span class="toggle-text">Modo escuro</span>'
-      : '<span class="icon-light">☀️</span><span class="toggle-text">Modo claro</span>';
-  }
+    const toggleText = btn.querySelector('.toggle-text');
+    if (toggleText) {
+      toggleText.textContent = isLight ? 'Modo escuro' : 'Modo claro';
+    }
   localStorage.setItem('contahub-theme', theme);
 }
 

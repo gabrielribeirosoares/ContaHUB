@@ -100,10 +100,6 @@ function toggleTheme() {
   }
 })();
 
-function escHtml(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
 // ════════════════════════════════════════════
 //  AUTH & INICIALIZAÇÃO
 // ════════════════════════════════════════════
@@ -130,6 +126,8 @@ function loadUsers() {
       return nomeA.localeCompare(nomeB);
     });
 
+    const validRoomIds = new Set();
+
     usersList.forEach(u => {
       count++;
       const uid = u.id;
@@ -145,6 +143,7 @@ function loadUsers() {
           closeSidebar();
         });
         const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
+        validRoomIds.add(roomId);
 
         if (!unreadObservers[roomId]) {
           unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages').onSnapshot(s => {
@@ -201,6 +200,13 @@ function loadUsers() {
       div.appendChild(unreadBadge);
       div.appendChild(statusDot);
       container.appendChild(div);
+    });
+
+    Object.keys(unreadObservers).forEach(roomId => {
+      if (!validRoomIds.has(roomId)) {
+        unreadObservers[roomId]();
+        delete unreadObservers[roomId];
+      }
     });
     
     const statMembers = $('stat-members');
@@ -307,44 +313,89 @@ document.body.addEventListener('click', () => {
 
         // Labels para mostrar o nome bonito do setor
         const SECTOR_LABELS = { fiscal: 'Dep. Fiscal', dp: 'Dep. Pessoal', contabil: 'Dep. Contábil' };
-        let html = '';
+        const createSectionTitle = (color, text, marginTop = '0') => {
+          const title = document.createElement('div');
+          title.style.color = color;
+          title.style.fontSize = '14px';
+          title.style.fontWeight = '700';
+          title.style.marginBottom = '8px';
+          title.style.marginTop = marginTop;
+          title.style.display = 'flex';
+          title.style.alignItems = 'center';
+          title.style.gap = '6px';
+          title.textContent = text;
+          return title;
+        };
+
+        const createTaskCard = (task, setorNome, dueLabel, options) => {
+          const card = document.createElement('div');
+          card.style.background = options.bg;
+          card.style.padding = '10px 14px';
+          card.style.borderRadius = '8px';
+          card.style.marginBottom = '8px';
+          card.style.fontSize = '13px';
+          card.style.border = options.border;
+          card.style.display = 'flex';
+          card.style.justifyContent = 'space-between';
+          card.style.alignItems = 'center';
+
+          const left = document.createElement('div');
+          left.style.display = 'flex';
+          left.style.flexDirection = 'column';
+          left.style.gap = '3px';
+
+          const title = document.createElement('strong');
+          title.style.color = 'var(--text)';
+          title.textContent = task.title || '(Sem título)';
+
+          const meta = document.createElement('span');
+          meta.style.fontSize = '10.5px';
+          meta.style.color = 'var(--muted)';
+          meta.textContent = `${setorNome} • Resp: ${task.authorName || 'N/A'}`;
+
+          left.appendChild(title);
+          left.appendChild(meta);
+
+          const due = document.createElement('span');
+          due.style.color = options.color;
+          due.style.fontSize = '11px';
+          due.style.whiteSpace = 'nowrap';
+          due.style.marginLeft = '10px';
+          due.textContent = dueLabel;
+
+          card.appendChild(left);
+          card.appendChild(due);
+          return card;
+        };
+
+        bodyEl.textContent = '';
 
         if (lateTasks.length > 0) {
-          html += `<div style="color:var(--red); font-size:14px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">⚠️ ${lateTasks.length} Tarefa(s) Atrasada(s) no seu Setor:</div>`;
+          bodyEl.appendChild(createSectionTitle('var(--red)', `⚠️ ${lateTasks.length} Tarefa(s) Atrasada(s) no seu Setor:`));
           lateTasks.forEach(t => {
             const dataFormatada = t.due.split('-').reverse().join('/');
             const setorNome = SECTOR_LABELS[t.tag] || t.tag;
-            
-            html += `
-              <div style="background: rgba(224, 95, 95, 0.08); padding:10px 14px; border-radius:8px; margin-bottom:8px; font-size:13px; border:1px solid rgba(224,95,95,0.3); display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; flex-direction:column; gap:3px;">
-                  <strong style="color:var(--text);">${escHtml(t.title)}</strong>
-                  <span style="font-size:10.5px; color:var(--muted);">${setorNome} • Resp: <strong>${escHtml(t.authorName || 'N/A')}</strong></span>
-                </div>
-                <span style="color:var(--red); font-size:11px; white-space:nowrap; margin-left:10px;">Venceu em: ${dataFormatada}</span>
-              </div>`;
+            bodyEl.appendChild(createTaskCard(t, setorNome, `Venceu em: ${dataFormatada}`, {
+              bg: 'rgba(224, 95, 95, 0.08)',
+              border: '1px solid rgba(224,95,95,0.3)',
+              color: 'var(--red)'
+            }));
           });
         }
 
         if (soonTasks.length > 0) {
-          html += `<div style="color:var(--accent2); font-size:14px; font-weight:700; margin-bottom:8px; margin-top:16px; display:flex; align-items:center; gap:6px;">🟡 ${soonTasks.length} Tarefa(s) a Vencer em breve no seu Setor:</div>`;
+          bodyEl.appendChild(createSectionTitle('var(--accent2)', `🟡 ${soonTasks.length} Tarefa(s) a Vencer em breve no seu Setor:`, '16px'));
           soonTasks.forEach(t => {
             const dataFormatada = t.due.split('-').reverse().join('/');
             const setorNome = SECTOR_LABELS[t.tag] || t.tag;
-
-            html += `
-              <div style="background: rgba(201, 168, 76, 0.08); padding:10px 14px; border-radius:8px; margin-bottom:8px; font-size:13px; border:1px solid rgba(201,168,76,0.3); display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; flex-direction:column; gap:3px;">
-                  <strong style="color:var(--text);">${escHtml(t.title)}</strong>
-                  <span style="font-size:10.5px; color:var(--muted);">${setorNome} • Resp: <strong>${escHtml(t.authorName || 'N/A')}</strong></span>
-                </div>
-                <span style="color:var(--accent2); font-size:11px; white-space:nowrap; margin-left:10px;">Vence em: ${dataFormatada}</span>
-              </div>`;
+            bodyEl.appendChild(createTaskCard(t, setorNome, `Vence em: ${dataFormatada}`, {
+              bg: 'rgba(201, 168, 76, 0.08)',
+              border: '1px solid rgba(201,168,76,0.3)',
+              color: 'var(--accent2)'
+            }));
           });
         }
 
-        // Injeta o HTML e exibe o alerta
-        bodyEl.innerHTML = html;
         alertEl.style.display = 'flex';
 
       } catch (err) {
