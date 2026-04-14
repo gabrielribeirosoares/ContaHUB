@@ -75,8 +75,10 @@ function initDashboardEvents() {
   if (hamburgerBtn) hamburgerBtn.addEventListener('click', toggleSidebar);
 
   const topbarUser = $('topbar-user');
-  if (topbarUser && typeof openProfile === 'function') {
-    topbarUser.addEventListener('click', openProfile);
+  if (topbarUser) {
+    topbarUser.addEventListener('click', () => {
+      if (typeof openProfile === 'function') openProfile();
+    });
   }
 
   const rightPanelBtn = $('btn-rp-toggle');
@@ -100,12 +102,17 @@ function initDashboardEvents() {
   });
 
   const clearChatBtn = $('btn-clear-chat');
-  if (clearChatBtn && typeof clearChat === 'function') {
-    clearChatBtn.addEventListener('click', clearChat);
+  if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+      if (typeof clearChat === 'function') clearChat();
+    });
   }
 }
-
-document.addEventListener('DOMContentLoaded', initDashboardEvents);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDashboardEvents);
+} else {
+  initDashboardEvents();
+}
 
 function switchTab(id, btn) {
   $$('.tab-panel').forEach(p => p.classList.remove('active'));
