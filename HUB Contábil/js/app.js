@@ -61,11 +61,10 @@ updateDate();
 
 // Tenta rodar de novo assim que toda a tela carregar definitivamente (garantia)
 window.addEventListener('load', () => {
-  updateDate();
-  // Passa a atualizar a cada 1 minuto
-  setInterval(updateDate, 60000); 
+  updateDate(); 
 });
-updateDate();
+
+// Passa a atualizar a cada 1 minuto
 setInterval(updateDate, 60000);
 
 function switchTab(id, btn) {
@@ -185,7 +184,42 @@ function loadUsers() {
         div.style.cursor = 'default'; 
       }
       
-      div.innerHTML = `<div class="user-av" style="background:${u.color || '#3a4060'}">${u.initials || '??'}</div><div><div class="user-name">${nameStr} ${isMe ? '<span style="color:var(--muted);font-size:10px">(Você)</span>' : ''}</div><div class="user-status">${u.role || ''}</div></div><span class="unread-badge"></span><div class="dot" style="background:var(--green)"></div>`;
+      const avatar = document.createElement('div');
+      avatar.className = 'user-av';
+      avatar.style.background = u.color || '#3a4060';
+      avatar.textContent = u.initials || '??';
+
+      const content = document.createElement('div');
+      const nameEl = document.createElement('div');
+      nameEl.className = 'user-name';
+      nameEl.textContent = nameStr;
+
+      if (isMe) {
+        const youTag = document.createElement('span');
+        youTag.style.color = 'var(--muted)';
+        youTag.style.fontSize = '10px';
+        youTag.textContent = ' (Você)';
+        nameEl.appendChild(youTag);
+      }
+
+      const roleEl = document.createElement('div');
+      roleEl.className = 'user-status';
+      roleEl.textContent = u.role || '';
+
+      content.appendChild(nameEl);
+      content.appendChild(roleEl);
+
+      const unreadBadge = document.createElement('span');
+      unreadBadge.className = 'unread-badge';
+
+      const statusDot = document.createElement('div');
+      statusDot.className = 'dot';
+      statusDot.style.background = 'var(--green)';
+
+      div.appendChild(avatar);
+      div.appendChild(content);
+      div.appendChild(unreadBadge);
+      div.appendChild(statusDot);
       container.appendChild(div);
     });
     
@@ -359,5 +393,3 @@ function closeLightbox() {
     img.src = '';
   }, 300);
 }
-
-

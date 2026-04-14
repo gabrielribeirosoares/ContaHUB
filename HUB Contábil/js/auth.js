@@ -18,7 +18,7 @@ function clearFeedback() {
 function showFeedback(id, type, msg) {
   const el = document.getElementById(id);
   el.className = 'feedback ' + type;
-  el.innerHTML = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
+  el.textContent = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
 }
 
 function togglePw(id, btn) {
@@ -151,3 +151,36 @@ function toggleTheme() {
   const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
   applyTheme(prefersLight ? 'light' : 'dark');
 })();
+
+function initLoginEvents() {
+  const emailInput = document.getElementById('login-email');
+  const passwordInput = document.getElementById('login-password');
+  const loginButton = document.getElementById('btn-login');
+  const pwToggleButton = document.getElementById('pw-toggle-login');
+  const themeToggleButton = document.getElementById('theme-toggle');
+
+  if (emailInput) {
+    emailInput.addEventListener('input', () => clearLoginFieldError('login-email'));
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener('input', () => clearLoginFieldError('login-password'));
+    passwordInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') doLogin();
+    });
+  }
+
+  if (loginButton) {
+    loginButton.addEventListener('click', doLogin);
+  }
+
+  if (pwToggleButton) {
+    pwToggleButton.addEventListener('click', () => togglePw('login-password', pwToggleButton));
+  }
+
+  if (themeToggleButton) {
+    themeToggleButton.addEventListener('click', toggleTheme);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initLoginEvents);
