@@ -97,10 +97,6 @@ function initDashboardEvents() {
     });
   });
 
-  $$('.tab-btn[data-tab-id]').forEach(tabBtn => {
-    tabBtn.addEventListener('click', () => switchTab(tabBtn.dataset.tabId, tabBtn));
-  });
-
   const clearChatBtn = $('btn-clear-chat');
   if (clearChatBtn) {
     clearChatBtn.addEventListener('click', () => {
