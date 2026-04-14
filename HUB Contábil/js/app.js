@@ -107,81 +107,61 @@ function escHtml(str) {
 // ════════════════════════════════════════════
 //  AUTH & INICIALIZAÇÃO
 // ════════════════════════════════════════════
-auth.onAuthStateChanged(async user => {
-  if (!user) { window.location.href = 'index.html'; return; }
-  try {
-    const snap = await db.collection('users').doc(user.uid).get();
-    currentUser = snap.exists
-      ? { uid: user.uid, ...snap.data() }
-      : { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
-  } catch (e) {
-    currentUser = { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
-  }
-  $('user-avatar').textContent = currentUser.initials || 'US';
-  $('user-avatar').style.background = currentUser.color || '#3a4060';
-  $('user-name-text').textContent = currentUser.name + ' ' + (currentUser.surname || '');
-  
-  if (typeof loadUsers === 'function') loadUsers();
-  if (typeof initUnreadCounters === 'function') initUnreadCounters();
-  if (typeof subscribeChat === 'function') subscribeChat('channels', currentChannel, currentChatTargetName);
-  if (typeof subscribeMural === 'function') subscribeMural();
-  if (typeof initSectorViews === 'function') initSectorViews();
-  if (typeof subscribeClients === 'function') subscribeClients();
+let unsubUsers = null;
 
-  // ════════════════════════════════════════════
-//  CARREGAR E ORDENAR USUÁRIOS (BARRA LATERAL)
-// ════════════════════════════════════════════
 function loadUsers() {
-  db.collection('users').onSnapshot(snap => {
-    const container = $('users-sidebar'); 
-    if (!container) return;
-    
-    container.innerHTML = ''; 
-    let count = 0;
+  if (unsubUsers) unsubUsers();
 
-    // 1. Extrair os usuários do Firebase para uma lista (Array)
+  unsubUsers = db.collection('users').onSnapshot(snap => {
+    const container = $('users-sidebar');
+    if (!container) return;
+
+    container.innerHTML = '';
+    let count = 0;
     const usersList = [];
+
     snap.forEach(doc => {
       usersList.push({ id: doc.id, ...doc.data() });
     });
 
-    // 2. Ordenar a lista em ordem alfabética (Ignorando acentos e maiúsculas/minúsculas)
     usersList.sort((a, b) => {
       const nomeA = (a.name || '').toLowerCase();
       const nomeB = (b.name || '').toLowerCase();
       return nomeA.localeCompare(nomeB);
     });
 
-    // 3. Desenhar a lista já ordenada na tela
     usersList.forEach(u => {
       count++;
-      const uid = u.id; 
+      const uid = u.id;
       const isMe = currentUser && uid === currentUser.uid;
       const nameStr = u.name + ' ' + (u.surname || '');
-      
+
       const div = document.createElement('div');
       div.className = 'user-row' + (isDM && currentDM === uid ? ' active-dm' : '');
-      
+
       if (!isMe) {
-        div.onclick = () => { openDM(uid, nameStr, div); closeSidebar(); };
+        div.addEventListener('click', () => {
+          openDM(uid, nameStr, div);
+          closeSidebar();
+        });
         const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
-        
+
         if (!unreadObservers[roomId]) {
           unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages').onSnapshot(s => {
-            let dmCount = 0; 
-            s.forEach(d => { 
-              const m = d.data(); 
-              if (m.authorId !== currentUser.uid && (!m.readBy || !m.readBy.includes(currentUser.uid))) dmCount++; 
+            let dmCount = 0;
+            s.forEach(d => {
+              const m = d.data();
+              if (m.authorId !== currentUser.uid && (!m.readBy || !m.readBy.includes(currentUser.uid))) dmCount++;
             });
-            const b = div.querySelector('.unread-badge'); 
-            if (b) { 
-              b.textContent = dmCount; 
-              b.style.display = dmCount > 0 ? 'inline-block' : 'none'; 
+            const b = div.querySelector('.unread-badge');
+            if (b) {
+              b.textContent = dmCount;
+              b.style.display = dmCount > 0 ? 'inline-block' : 'none';
             }
           });
         }
-      } else { 
-        div.style.cursor = 'default'; 
+      } else {
+        div.style.cursor = 'default';
       }
       
       const avatar = document.createElement('div');
@@ -228,16 +208,32 @@ function loadUsers() {
   });
 }
   
- loadUsers();
-      initUnreadCounters();
-      subscribeChat('channels', currentChannel, currentChatTargetName);
-      subscribeMural();
-      initSectorViews();
-      
-      setTimeout(() => { $('loading-overlay').classList.add('hidden'); showStartupAlert(); }, 600);
-    });
+auth.onAuthStateChanged(async user => {
+  if (!user) { window.location.href = 'index.html'; return; }
+  try {
+    const snap = await db.collection('users').doc(user.uid).get();
+    currentUser = snap.exists
+      ? { uid: user.uid, ...snap.data() }
+      : { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
+  } catch (e) {
+    currentUser = { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
+  }
+  $('user-avatar').textContent = currentUser.initials || 'US';
+  $('user-avatar').style.background = currentUser.color || '#3a4060';
+  $('user-name-text').textContent = currentUser.name + ' ' + (currentUser.surname || '');
+
+  loadUsers();
+  if (typeof initUnreadCounters === 'function') initUnreadCounters();
+  if (typeof subscribeChat === 'function') subscribeChat('channels', currentChannel, currentChatTargetName);
+  if (typeof subscribeMural === 'function') subscribeMural();
+  if (typeof initSectorViews === 'function') initSectorViews();
+  if (typeof subscribeClients === 'function') subscribeClients();
+
+  setTimeout(() => { $('loading-overlay').classList.add('hidden'); showStartupAlert(); }, 600);
+});
 
 async function doLogout() {
+  if (unsubUsers) { unsubUsers(); unsubUsers = null; }
   if (unsubChat) unsubChat();
   if (unsubMural) unsubMural();
   if (unsubTasks) unsubTasks();

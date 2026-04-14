@@ -10,7 +10,7 @@ function clearFeedback() {
   ['login-feedback'].forEach(id => {
     const el = document.getElementById(id);
     el.className = 'feedback';
-    el.innerHTML = '';
+    el.textContent = '';
   });
   ['login-email', 'login-password'].forEach(id => clearLoginFieldError(id));
 }
