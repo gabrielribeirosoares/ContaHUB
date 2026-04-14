@@ -62,10 +62,9 @@ updateDate();
 // Tenta rodar de novo assim que toda a tela carregar definitivamente (garantia)
 window.addEventListener('load', () => {
   updateDate();
-  // Passa a atualizar a cada 1 minuto
-  setInterval(updateDate, 60000); 
 });
-updateDate();
+
+// Passa a atualizar a cada 1 minuto
 setInterval(updateDate, 60000);
 
 function switchTab(id, btn) {
@@ -108,6 +107,107 @@ function escHtml(str) {
 // ════════════════════════════════════════════
 //  AUTH & INICIALIZAÇÃO
 // ════════════════════════════════════════════
+let unsubUsers = null;
+
+function loadUsers() {
+  if (unsubUsers) unsubUsers();
+
+  unsubUsers = db.collection('users').onSnapshot(snap => {
+    const container = $('users-sidebar');
+    if (!container) return;
+
+    container.innerHTML = '';
+    let count = 0;
+    const usersList = [];
+
+    snap.forEach(doc => {
+      usersList.push({ id: doc.id, ...doc.data() });
+    });
+
+    usersList.sort((a, b) => {
+      const nomeA = (a.name || '').toLowerCase();
+      const nomeB = (b.name || '').toLowerCase();
+      return nomeA.localeCompare(nomeB);
+    });
+
+    usersList.forEach(u => {
+      count++;
+      const uid = u.id;
+      const isMe = currentUser && uid === currentUser.uid;
+      const nameStr = u.name + ' ' + (u.surname || '');
+
+      const div = document.createElement('div');
+      div.className = 'user-row' + (isDM && currentDM === uid ? ' active-dm' : '');
+
+      if (!isMe) {
+        div.addEventListener('click', () => {
+          openDM(uid, nameStr, div);
+          closeSidebar();
+        });
+        const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
+
+        if (!unreadObservers[roomId]) {
+          unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages').onSnapshot(s => {
+            let dmCount = 0;
+            s.forEach(d => {
+              const m = d.data();
+              if (m.authorId !== currentUser.uid && (!m.readBy || !m.readBy.includes(currentUser.uid))) dmCount++;
+            });
+            const b = div.querySelector('.unread-badge');
+            if (b) {
+              b.textContent = dmCount;
+              b.style.display = dmCount > 0 ? 'inline-block' : 'none';
+            }
+          });
+        }
+      } else {
+        div.style.cursor = 'default';
+      }
+
+      const avatar = document.createElement('div');
+      avatar.className = 'user-av';
+      avatar.style.background = u.color || '#3a4060';
+      avatar.textContent = u.initials || '??';
+
+      const content = document.createElement('div');
+      const nameEl = document.createElement('div');
+      nameEl.className = 'user-name';
+      nameEl.textContent = nameStr;
+
+      if (isMe) {
+        const youTag = document.createElement('span');
+        youTag.style.color = 'var(--muted)';
+        youTag.style.fontSize = '10px';
+        youTag.textContent = ' (Você)';
+        nameEl.appendChild(youTag);
+      }
+
+      const roleEl = document.createElement('div');
+      roleEl.className = 'user-status';
+      roleEl.textContent = u.role || '';
+
+      content.appendChild(nameEl);
+      content.appendChild(roleEl);
+
+      const unreadBadge = document.createElement('span');
+      unreadBadge.className = 'unread-badge';
+
+      const statusDot = document.createElement('div');
+      statusDot.className = 'dot';
+      statusDot.style.background = 'var(--green)';
+
+      div.appendChild(avatar);
+      div.appendChild(content);
+      div.appendChild(unreadBadge);
+      div.appendChild(statusDot);
+      container.appendChild(div);
+    });
+
+    const statMembers = $('stat-members');
+    if (statMembers) statMembers.textContent = count;
+  });
+}
+
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
   try {
@@ -121,89 +221,19 @@ auth.onAuthStateChanged(async user => {
   $('user-avatar').textContent = currentUser.initials || 'US';
   $('user-avatar').style.background = currentUser.color || '#3a4060';
   $('user-name-text').textContent = currentUser.name + ' ' + (currentUser.surname || '');
-  
-  if (typeof loadUsers === 'function') loadUsers();
+
+  loadUsers();
   if (typeof initUnreadCounters === 'function') initUnreadCounters();
   if (typeof subscribeChat === 'function') subscribeChat('channels', currentChannel, currentChatTargetName);
   if (typeof subscribeMural === 'function') subscribeMural();
   if (typeof initSectorViews === 'function') initSectorViews();
   if (typeof subscribeClients === 'function') subscribeClients();
 
-  // ════════════════════════════════════════════
-//  CARREGAR E ORDENAR USUÁRIOS (BARRA LATERAL)
-// ════════════════════════════════════════════
-function loadUsers() {
-  db.collection('users').onSnapshot(snap => {
-    const container = $('users-sidebar'); 
-    if (!container) return;
-    
-    container.innerHTML = ''; 
-    let count = 0;
-
-    // 1. Extrair os usuários do Firebase para uma lista (Array)
-    const usersList = [];
-    snap.forEach(doc => {
-      usersList.push({ id: doc.id, ...doc.data() });
-    });
-
-    // 2. Ordenar a lista em ordem alfabética (Ignorando acentos e maiúsculas/minúsculas)
-    usersList.sort((a, b) => {
-      const nomeA = (a.name || '').toLowerCase();
-      const nomeB = (b.name || '').toLowerCase();
-      return nomeA.localeCompare(nomeB);
-    });
-
-    // 3. Desenhar a lista já ordenada na tela
-    usersList.forEach(u => {
-      count++;
-      const uid = u.id; 
-      const isMe = currentUser && uid === currentUser.uid;
-      const nameStr = u.name + ' ' + (u.surname || '');
-      
-      const div = document.createElement('div');
-      div.className = 'user-row' + (isDM && currentDM === uid ? ' active-dm' : '');
-      
-      if (!isMe) {
-        div.onclick = () => { openDM(uid, nameStr, div); closeSidebar(); };
-        const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
-        
-        if (!unreadObservers[roomId]) {
-          unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages').onSnapshot(s => {
-            let dmCount = 0; 
-            s.forEach(d => { 
-              const m = d.data(); 
-              if (m.authorId !== currentUser.uid && (!m.readBy || !m.readBy.includes(currentUser.uid))) dmCount++; 
-            });
-            const b = div.querySelector('.unread-badge'); 
-            if (b) { 
-              b.textContent = dmCount; 
-              b.style.display = dmCount > 0 ? 'inline-block' : 'none'; 
-            }
-          });
-        }
-      } else { 
-        div.style.cursor = 'default'; 
-      }
-      
-      div.innerHTML = `<div class="user-av" style="background:${u.color || '#3a4060'}">${u.initials || '??'}</div><div><div class="user-name">${nameStr} ${isMe ? '<span style="color:var(--muted);font-size:10px">(Você)</span>' : ''}</div><div class="user-status">${u.role || ''}</div></div><span class="unread-badge"></span><div class="dot" style="background:var(--green)"></div>`;
-      container.appendChild(div);
-    });
-    
-    const statMembers = $('stat-members');
-    if (statMembers) statMembers.textContent = count;
-  });
-}
-  
- loadUsers();
-      initUnreadCounters();
-      subscribeChat('channels', currentChannel, currentChatTargetName);
-      subscribeMural();
-      initSectorViews();
-      
-      setTimeout(() => { $('loading-overlay').classList.add('hidden'); showStartupAlert(); }, 600);
-    });
+  setTimeout(() => { $('loading-overlay').classList.add('hidden'); showStartupAlert(); }, 600);
+});
 
 async function doLogout() {
+  if (unsubUsers) { unsubUsers(); unsubUsers = null; }
   if (unsubChat) unsubChat();
   if (unsubMural) unsubMural();
   if (unsubTasks) unsubTasks();
@@ -359,5 +389,3 @@ function closeLightbox() {
     img.src = '';
   }, 300);
 }
-
-

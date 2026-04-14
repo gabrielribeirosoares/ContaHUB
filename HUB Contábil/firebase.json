@@ -6,6 +6,7 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      "**/*.rar",
       "**/.*",
       "**/node_modules/**"
     ]
