@@ -67,6 +67,46 @@ window.addEventListener('load', () => {
 // Passa a atualizar a cada 1 minuto
 setInterval(updateDate, 60000);
 
+function initDashboardEvents() {
+  const sidebarOverlay = $('sidebar-overlay');
+  if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
+  const hamburgerBtn = $('hamburger-btn');
+  if (hamburgerBtn) hamburgerBtn.addEventListener('click', toggleSidebar);
+
+  const topbarUser = $('topbar-user');
+  if (topbarUser && typeof openProfile === 'function') {
+    topbarUser.addEventListener('click', openProfile);
+  }
+
+  const rightPanelBtn = $('btn-rp-toggle');
+  if (rightPanelBtn) rightPanelBtn.addEventListener('click', toggleRightPanel);
+
+  const themeBtn = $('btn-theme');
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+  const logoutBtn = $('btn-logout');
+  if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
+
+  $$('.channel-item[data-channel]').forEach(channelEl => {
+    channelEl.addEventListener('click', () => {
+      if (typeof switchChannel === 'function') switchChannel(channelEl);
+      closeSidebar();
+    });
+  });
+
+  $$('.tab-btn[data-tab-id]').forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => switchTab(tabBtn.dataset.tabId, tabBtn));
+  });
+
+  const clearChatBtn = $('btn-clear-chat');
+  if (clearChatBtn && typeof clearChat === 'function') {
+    clearChatBtn.addEventListener('click', clearChat);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initDashboardEvents);
+
 function switchTab(id, btn) {
   $$('.tab-panel').forEach(p => p.classList.remove('active'));
   $$('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -112,7 +152,7 @@ function loadUsers() {
     const container = $('users-sidebar');
     if (!container) return;
 
-    container.innerHTML = '';
+    container.replaceChildren();
     let count = 0;
     const usersList = [];
 
