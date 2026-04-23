@@ -9,17 +9,10 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    const storage = firebase.storage();
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+const rtdb = firebase.database();
 
-    // 🔴 ATIVAR O MODO OFFLINE (PERSISTÊNCIA)
-    db.enablePersistence()
-      .catch(function(err) {
-          if (err.code == 'failed-precondition') {
-              console.warn('O modo offline só funciona num separador de cada vez.');
-          } else if (err.code == 'unimplemented') {
-              console.warn('O seu navegador não suporta o modo offline.');
-          }
-      });
-  
+// 🔴 PERSISTÊNCIA DESATIVADA — evita cache de mensagens deletadas
+// db.enablePersistence();

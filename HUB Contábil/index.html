@@ -13,7 +13,7 @@
 
 </head>
 <body>
-<button aria-label="Alternar tema" class="theme-toggle" id="theme-toggle" type="button">
+<button aria-label="Alternar tema" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" type="button">
 <span class="icon-light">☀️</span>
 <span class="toggle-text">Modo claro</span>
 <span class="icon-dark">🌙</span>
@@ -60,19 +60,28 @@
 <label for="login-email">E-mail</label>
 <div class="field-wrap">
 <span class="field-icon">✉️</span>
-<input autocomplete="email" id="login-email" placeholder="seu@email.com" type="email"/>
+<input autocomplete="email" id="login-email" oninput="clearLoginFieldError('login-email')" placeholder="seu@email.com" type="email"/>
 </div>
 </div>
 <div class="field">
 <label for="login-password">Senha</label>
 <div class="field-wrap">
 <span class="field-icon">🔒</span>
-<input autocomplete="current-password" id="login-password" placeholder="••••••••" type="password"/>
-<button class="pw-toggle" id="pw-toggle-login" tabindex="-1" type="button">👁️</button>
+<input autocomplete="current-password" id="login-password" oninput="clearLoginFieldError('login-password')" onkeydown="if(event.key==='Enter') doLogin()" placeholder="••••••••" type="password"/>
+<button class="pw-toggle" onclick="togglePw('login-password',this)" tabindex="-1" type="button">👁️</button>
 </div>
 </div>
-<button class="btn-primary" id="btn-login" type="button">Entrar no escritório →</button>
-</div>
+<button class="btn-primary" id="btn-login" onclick="doLogin()" type="button">Entrar no escritório →</button>
+</div>        
+        <div style="margin-top: 24px; text-align: center; font-size: 14px; color: var(--muted);">
+          Ainda não tem o seu escritório virtual? <br>
+          <a href="register.html" style="color: var(--accent2); font-weight: 600; text-decoration: none; display: inline-block; margin-top: 8px;">
+            Criar Conta / Assinar a Plataforma
+          </a>
+        </div>
+        </div>
+    </div>
+  </div>
 
 </div>
 </div>
@@ -82,5 +91,7 @@
 
 <script src="js/firebase-config.js"></script>
 <script src="js/auth.js"></script>
+</body>
+</html>
 </body>
 </html>

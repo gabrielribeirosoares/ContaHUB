@@ -10,7 +10,7 @@ function clearFeedback() {
   ['login-feedback'].forEach(id => {
     const el = document.getElementById(id);
     el.className = 'feedback';
-    el.textContent = '';
+    el.innerHTML = '';
   });
   ['login-email', 'login-password'].forEach(id => clearLoginFieldError(id));
 }
@@ -18,7 +18,7 @@ function clearFeedback() {
 function showFeedback(id, type, msg) {
   const el = document.getElementById(id);
   el.className = 'feedback ' + type;
-  el.textContent = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
+  el.innerHTML = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
 }
 
 function togglePw(id, btn) {
@@ -103,7 +103,7 @@ async function doLogin() {
 
   const btn = document.getElementById('btn-login');
   btn.disabled = true;
-  btn.textContent = 'Entrando…';
+  btn.innerHTML = '<span class="spinner"></span> Entrando…';
 
   try {
     await auth.signInWithEmailAndPassword(email, password);
@@ -130,10 +130,10 @@ function applyTheme(theme) {
 
   const btn = document.getElementById('theme-toggle');
   if (btn) {
-    const toggleText = btn.querySelector('.toggle-text');
-    if (toggleText) {
-      toggleText.textContent = isLight ? 'Modo escuro' : 'Modo claro';
-    }
+    btn.innerHTML = isLight
+      ? '<span class="icon-dark">🌙</span><span class="toggle-text">Modo escuro</span>'
+      : '<span class="icon-light">☀️</span><span class="toggle-text">Modo claro</span>';
+  }
   localStorage.setItem('contahub-theme', theme);
 }
 
@@ -152,35 +152,3 @@ function toggleTheme() {
   applyTheme(prefersLight ? 'light' : 'dark');
 })();
 
-function initLoginEvents() {
-  const emailInput = document.getElementById('login-email');
-  const passwordInput = document.getElementById('login-password');
-  const loginButton = document.getElementById('btn-login');
-  const pwToggleButton = document.getElementById('pw-toggle-login');
-  const themeToggleButton = document.getElementById('theme-toggle');
-
-  if (emailInput) {
-    emailInput.addEventListener('input', () => clearLoginFieldError('login-email'));
-  }
-
-  if (passwordInput) {
-    passwordInput.addEventListener('input', () => clearLoginFieldError('login-password'));
-    passwordInput.addEventListener('keydown', event => {
-      if (event.key === 'Enter') doLogin();
-    });
-  }
-
-  if (loginButton) {
-    loginButton.addEventListener('click', doLogin);
-  }
-
-  if (pwToggleButton) {
-    pwToggleButton.addEventListener('click', () => togglePw('login-password', pwToggleButton));
-  }
-
-  if (themeToggleButton) {
-    themeToggleButton.addEventListener('click', toggleTheme);
-  }
-}
-
-document.addEventListener('DOMContentLoaded', initLoginEvents);

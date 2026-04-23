@@ -536,11 +536,13 @@
     }
 
     .dot {
-      width: 7px;
-      height: 7px;
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
-      margin-left: auto;
       flex-shrink: 0;
+      margin-left: auto;
+      background: #e05f5f !important;
+      transition: background 0.3s ease;
     }
 
     /* ── MAIN AREA ── */

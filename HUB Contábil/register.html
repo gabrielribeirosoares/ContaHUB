@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>ContaHUB — Criar Conta</title>
+  <link href="assets/favicon.ico.png" rel="shortcut icon" type="image/x-icon"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+  <div class="bg-mesh"><div class="bg-grid"></div></div>
+  
+  <div class="split">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="logo-box"><img alt="Logo ContaHub" src="assets/logo-contahub.png"/></div>
+        <span class="logo-name">ContaHUB</span>
+      </div>
+      <div>
+        <div class="brand-tagline">Comece o seu escritório digital hoje</div>
+        <div class="brand-desc">Registe a sua empresa e convide a sua equipa em poucos minutos.</div>
+      </div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-view active">
+        <div class="form-title">Criar Nova Conta</div>
+        <div class="form-subtitle">Preencha os dados da sua empresa</div>
+        <div id="signup-feedback" class="feedback"></div>
+
+        <div class="field">
+          <label>Nome do Escritório / Empresa</label>
+          <input type="text" id="reg-company" placeholder="Ex: Triade Contabilidade">
+        </div>
+
+        <div class="field">
+          <label>Seu Nome</label>
+          <input type="text" id="reg-name" placeholder="Ex: Gabriel">
+        </div>
+
+        <div class="field">
+          <label>E-mail Profissional</label>
+          <input type="email" id="reg-email" placeholder="seu@email.com">
+        </div>
+
+        <div class="field">
+          <label>Senha de Acesso</label>
+          <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres">
+        </div>
+
+        <button class="btn-primary" id="btn-signup" onclick="doSignup()">Criar meu Escritório →</button>
+        
+        <div style="margin-top:20px; text-align:center; font-size:14px; color:var(--muted)">
+          Já tem conta? <a href="index.html" style="color:var(--accent2)">Fazer Login</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/signup.js"></script>
+</body>
+</html>

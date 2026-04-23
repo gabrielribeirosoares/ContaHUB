@@ -96,34 +96,39 @@ const noticeTags = { geral: '📌 Geral', urgente: '🔴 Urgente', info: '🔵 I
 
 function subscribeMural() {
   const area = $('mural-area');
-  unsubMural = db.collection('notices').orderBy('createdAt', 'desc').onSnapshot(snap => {
-    area.innerHTML = '';
-    if (snap.empty) {
-      area.innerHTML = `<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📌</span><span>Nenhum aviso ainda.</span></div>`;
-      $('stat-notices').textContent = 0; return;
-    }
-    $('stat-notices').textContent = snap.size;
-    const userSectors = getUserSectors(currentUser?.role || '');
-    const isManagerMural = userSectors.length === 4;
-    snap.forEach(doc => {
-      const n = doc.data();
-      if (n.sector && n.sector !== 'todos' && !isManagerMural && !userSectors.includes(n.sector)) return;
-      const ts = n.createdAt?.toDate?.() || new Date();
-      const timeStr = ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ', ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const isOwn = n.authorId === currentUser?.uid;
-      const card = document.createElement('div');
-      card.className = 'notice-card ' + (n.type || 'geral');
-      card.innerHTML = `
-        <span class="notice-tag">${noticeTags[n.type] || '📌 Geral'}</span>
-        <div class="notice-title">${escHtml(n.title)}</div>
-        <div class="notice-body">${escHtml(n.body || '')}</div>
-        <div class="notice-footer">
-          <span>${escHtml(n.authorName || '')}</span>
-          <span style="display:flex;align-items:center;gap:6px">${timeStr} ${isOwn ? `<button class="btn-del" onclick="deleteNotice('${doc.id}')">✕</button>` : ''}</span>
-        </div>`;
-      area.appendChild(card);
+  // ADICIONADO: Filtro tenantId
+  unsubMural = db.collection('notices')
+    .where('tenantId', '==', currentUser.tenantId) 
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(snap => {
+       // ... (o resto do código dentro do onSnapshot mantém-se igual)
+       area.innerHTML = '';
+       if (snap.empty) {
+         area.innerHTML = `<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📌</span><span>Nenhum aviso ainda.</span></div>`;
+         $('stat-notices').textContent = 0; return;
+       }
+       $('stat-notices').textContent = snap.size;
+       const userSectors = getUserSectors(currentUser?.role || '');
+       const isManagerMural = userSectors.length === 4;
+       snap.forEach(doc => {
+         const n = doc.data();
+         if (n.sector && n.sector !== 'todos' && !isManagerMural && !userSectors.includes(n.sector)) return;
+         const ts = n.createdAt?.toDate?.() || new Date();
+         const timeStr = ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ', ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+         const isOwn = n.authorId === currentUser?.uid;
+         const card = document.createElement('div');
+         card.className = 'notice-card ' + (n.type || 'geral');
+         card.innerHTML = `
+           <span class="notice-tag">${noticeTags[n.type] || '📌 Geral'}</span>
+           <div class="notice-title">${escHtml(n.title)}</div>
+           <div class="notice-body">${escHtml(n.body || '')}</div>
+           <div class="notice-footer">
+             <span>${escHtml(n.authorName || '')}</span>
+             <span style="display:flex;align-items:center;gap:6px">${timeStr} ${isOwn ? `<button class="btn-del" onclick="deleteNotice('${doc.id}')">✕</button>` : ''}</span>
+           </div>`;
+         area.appendChild(card);
+       });
     });
-  });
 }
 
 async function addNotice() {
@@ -133,10 +138,10 @@ async function addNotice() {
   const type = document.getElementById('notice-type').value;
   const sector = document.getElementById('notice-sector')?.value || 'todos';
   if (!title) return;
-  if (title.length > 150) { alert('Título muito longo (máx. 150 caracteres).'); return; }
-  if (body.length > 1000) { alert('Descrição muito longa (máx. 1000 caracteres).'); return; }
+  
   await db.collection('notices').add({
     title, body, type, sector,
+    tenantId: currentUser.tenantId, // ADICIONADO: Associação à empresa
     authorId: currentUser.uid,
     authorName: currentUser.name + ' ' + (currentUser.surname || ''),
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -224,66 +229,69 @@ function formatDueDate(due) {
 }
 
 function subscribeTasks(sector) {
-  const query = db.collection('tasks').where('tag', '==', sector);
+  // ADICIONADO: Filtro tenantId
+  const query = db.collection('tasks')
+    .where('tenantId', '==', currentUser.tenantId)
+    .where('tag', '==', sector);
+  
   unsubTasks = query.onSnapshot(snap => {
-    ['todo', 'prog', 'done'].forEach(col => { const el = document.getElementById('col-' + col); if (el) el.innerHTML = ''; });
-    let openCount = 0;
-    const docs = [];
-    snap.forEach(doc => docs.push(doc));
-    docs.sort((a, b) => {
-      const ta = a.data().createdAt?.toMillis?.() || 0;
-      const tb = b.data().createdAt?.toMillis?.() || 0;
-      return tb - ta;
-    });
-
-    docs.forEach(doc => {
-      const t = doc.data();
-      if (currentTaskFilter === 'minhas' && t.authorId !== currentUser?.uid) return;
-      if (currentTaskFilter === 'atrasadas') {
-        if (!t.due || t.column === 'done') return;
-        const d = new Date(t.due + 'T00:00:00');
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        if (Math.ceil((d - today) / 86400000) >= 0) return;
-      }
-      const col = t.column || 'todo';
-      if (col !== 'done') openCount++;
-
-      const isOwn = t.authorId === currentUser?.uid;
-      const isManager = isGestor();
-      const card = document.createElement('div');
-      card.className = 'task-card'; if (col === 'done') card.style.opacity = '.65';
-
-      const checkCount = t.checklist ? t.checklist.length : 0;
-      const doneCount = t.checklist ? t.checklist.filter(c => c.done).length : 0;
-      const checkHtml = checkCount > 0 ? `<div style="font-size:11px; color:var(--muted); margin-top:6px; display:flex; align-items:center; gap:4px;"><span style="color:${doneCount === checkCount ? 'var(--green)' : 'var(--accent2)'}">☑ ${doneCount}/${checkCount}</span> concluídos</div>` : '';
-      const checklistStr = encodeURIComponent(JSON.stringify(t.checklist || []));
-
-      // NOVO: Renderizar o nome do cliente no card se existir
-      const clientHtml = t.clientName ? `<div style="font-size:11.5px; font-weight:500; color:var(--blue); margin-top:4px; margin-bottom:2px;"><i class="fas fa-building" style="margin-right:4px;"></i>${escHtml(t.clientName)}</div>` : '';
-
-      // NOVO: Passar o clientId para a função openEditTask
-      card.innerHTML = `
-        <div class="task-card-title" style="${col === 'done' ? 'text-decoration:line-through;padding-right:80px' : 'padding-right:80px'}">${escHtml(t.title)}</div>
-        ${clientHtml}
-        ${checkHtml}
-        <div class="task-card-meta" style="margin-top:8px;">
-          <span class="task-tag ${t.tag || 'fiscal'}">${SECTOR_LABELS[t.tag] || t.tag || 'fiscal'}</span>
-          <div class="task-assignee" style="background:${t.authorColor || '#3a4060'}">${t.authorInitials || '??'}</div>
-          <span class="${col === 'done' ? 'task-due' : getDueBadgeClass(t.due)}" title="${col === 'done' ? 'Concluído' : getDueTooltip(t.due)}">${col === 'done' ? ('✅ ' + (t.completedAt?.toDate ? t.completedAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Concluído')) : formatDueDate(t.due)}</span>
-        </div>
-        <div class="task-actions" style="display:none;position:absolute;top:6px;right:6px;gap:4px;flex-direction:row;align-items:center;">
-          ${(isOwn || isManager) && col !== 'done' ? `<button title="Concluir" onclick="completeTask('${doc.id}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--green);cursor:pointer;font-size:12px;padding:2px 6px;line-height:1.4;">✓</button>` : ''}
-          ${(isOwn || isManager) ? `<button title="Editar" onclick="openEditTask('${doc.id}','${escHtml(t.title).replace(/'/g, "\\'")}','${t.tag || 'fiscal'}','${t.due || ''}','${t.column || 'todo'}', '${checklistStr}', '${encodeURIComponent(JSON.stringify(t.attachments || []))}', '${t.clientId || ''}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 6px;line-height:1.4;">✏️</button>` : ''}
-          ${(isOwn || isManager) ? `<button title="Excluir" onclick="deleteTask('${doc.id}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--red);cursor:pointer;font-size:12px;padding:2px 6px;line-height:1.4;">✕</button>` : ''}
-        </div>`;
-
-      card.addEventListener('mouseenter', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'flex'; });
-      card.addEventListener('mouseleave', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'none'; });
-      const colEl = document.getElementById('col-' + col); if (colEl) colEl.appendChild(card);
-    });
-
-    const statEl = $('stat-tasks'); if (statEl) statEl.textContent = openCount;
-    ['todo', 'prog', 'done'].forEach(col => { const c = document.getElementById('count-' + col); if (c) c.textContent = document.getElementById('col-' + col)?.children.length || 0; });
+      // ... (mantém todo o interior do onSnapshot igualzinho como estava)
+      // O código de renderizar os cards mantém-se inalterado.
+      ['todo', 'prog', 'done'].forEach(col => { const el = document.getElementById('col-' + col); if (el) el.innerHTML = ''; });
+      let openCount = 0;
+      const docs = [];
+      snap.forEach(doc => docs.push(doc));
+      docs.sort((a, b) => {
+        const ta = a.data().createdAt?.toMillis?.() || 0;
+        const tb = b.data().createdAt?.toMillis?.() || 0;
+        return tb - ta;
+      });
+  
+      docs.forEach(doc => {
+        const t = doc.data();
+        if (currentTaskFilter === 'minhas' && t.authorId !== currentUser?.uid) return;
+        if (currentTaskFilter === 'atrasadas') {
+          if (!t.due || t.column === 'done') return;
+          const d = new Date(t.due + 'T00:00:00');
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          if (Math.ceil((d - today) / 86400000) >= 0) return;
+        }
+        const col = t.column || 'todo';
+        if (col !== 'done') openCount++;
+  
+        const isOwn = t.authorId === currentUser?.uid;
+        const isManager = isGestor();
+        const card = document.createElement('div');
+        card.className = 'task-card'; if (col === 'done') card.style.opacity = '.65';
+  
+        const checkCount = t.checklist ? t.checklist.length : 0;
+        const doneCount = t.checklist ? t.checklist.filter(c => c.done).length : 0;
+        const checkHtml = checkCount > 0 ? `<div style="font-size:11px; color:var(--muted); margin-top:6px; display:flex; align-items:center; gap:4px;"><span style="color:${doneCount === checkCount ? 'var(--green)' : 'var(--accent2)'}">☑ ${doneCount}/${checkCount}</span> concluídos</div>` : '';
+        const checklistStr = encodeURIComponent(JSON.stringify(t.checklist || []));
+        const clientHtml = t.clientName ? `<div style="font-size:11.5px; font-weight:500; color:var(--blue); margin-top:4px; margin-bottom:2px;"><i class="fas fa-building" style="margin-right:4px;"></i>${escHtml(t.clientName)}</div>` : '';
+  
+        card.innerHTML = `
+          <div class="task-card-title" style="${col === 'done' ? 'text-decoration:line-through;padding-right:80px' : 'padding-right:80px'}">${escHtml(t.title)}</div>
+          ${clientHtml}
+          ${checkHtml}
+          <div class="task-card-meta" style="margin-top:8px;">
+            <span class="task-tag ${t.tag || 'fiscal'}">${SECTOR_LABELS[t.tag] || t.tag || 'fiscal'}</span>
+            <div class="task-assignee" style="background:${t.authorColor || '#3a4060'}">${t.authorInitials || '??'}</div>
+            <span class="${col === 'done' ? 'task-due' : getDueBadgeClass(t.due)}" title="${col === 'done' ? 'Concluído' : getDueTooltip(t.due)}">${col === 'done' ? ('✅ ' + (t.completedAt?.toDate ? t.completedAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Concluído')) : formatDueDate(t.due)}</span>
+          </div>
+          <div class="task-actions" style="display:none;position:absolute;top:6px;right:6px;gap:4px;flex-direction:row;align-items:center;">
+            ${(isOwn || isManager) && col !== 'done' ? `<button title="Concluir" onclick="completeTask('${doc.id}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--green);cursor:pointer;font-size:12px;padding:2px 6px;line-height:1.4;">✓</button>` : ''}
+            ${(isOwn || isManager) ? `<button title="Editar" onclick="openEditTask('${doc.id}','${escHtml(t.title).replace(/'/g, "\\'")}','${t.tag || 'fiscal'}','${t.due || ''}','${t.column || 'todo'}', '${checklistStr}', '${encodeURIComponent(JSON.stringify(t.attachments || []))}', '${t.clientId || ''}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 6px;line-height:1.4;">✏️</button>` : ''}
+            ${(isOwn || isManager) ? `<button title="Excluir" onclick="deleteTask('${doc.id}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--red);cursor:pointer;font-size:12px;padding:2px 6px;line-height:1.4;">✕</button>` : ''}
+          </div>`;
+  
+        card.addEventListener('mouseenter', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'flex'; });
+        card.addEventListener('mouseleave', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'none'; });
+        const colEl = document.getElementById('col-' + col); if (colEl) colEl.appendChild(card);
+      });
+  
+      const statEl = $('stat-tasks'); if (statEl) statEl.textContent = openCount;
+      ['todo', 'prog', 'done'].forEach(col => { const c = document.getElementById('count-' + col); if (c) c.textContent = document.getElementById('col-' + col)?.children.length || 0; });
   });
 }
 
@@ -312,8 +320,9 @@ async function addTask() {
   try {
     await db.collection('tasks').add({
       title, tag, due, column: col,
-      clientId, clientName, // NOVO: Salva os dados do cliente no Firebase
+      clientId, clientName,
       checklist: [],
+      tenantId: currentUser.tenantId, // ADICIONADO: Associação à empresa
       authorId: currentUser.uid,
       authorName: currentUser.name,
       authorInitials: currentUser.initials || 'US',
@@ -490,7 +499,10 @@ function carregarClientesNoSelect() {
     unsubClientesSelect();
   }
 
-  unsubClientesSelect = db.collection('clients').orderBy('razao').onSnapshot(snap => {
+  unsubClientesSelect = db.collection('clients')
+  .where('tenantId', '==', currentUser.tenantId) // ADICIONADO
+  .orderBy('razao')
+  .onSnapshot(snap => { // ... {
     let optionsHTML = '<option value="">Sem cliente</option>';
 
     snap.forEach(doc => {

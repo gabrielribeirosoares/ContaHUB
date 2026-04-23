@@ -4,20 +4,22 @@
 function subscribeAgenda(sector) {
   const managerContainer = document.getElementById('agenda-manager-list');
   const isManager = isGestor();
-  unsubAgenda = db.collection('agenda').where('sector', '==', sector).onSnapshot(snap => {
-    managerContainer.innerHTML = '';
-    if (snap.empty) {
-      managerContainer.innerHTML = '<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📅</span><span>Nenhuma obrigação cadastrada.</span></div>';
-      return;
-    }
-    snap.forEach(doc => {
-      const item = doc.data();
-      const canEdit = item.authorId === currentUser?.uid || isManager;
-      const isDone = item.done === true;
-      const manDiv = document.createElement('div');
-      manDiv.className = 'notice-card' + (isDone ? ' agenda-done-card' : '');
-      manDiv.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;';
-      manDiv.innerHTML = `
+  unsubAgenda = db.collection('agenda')
+    .where('tenantId', '==', currentUser.tenantId) // ADICIONADO
+    .where('sector', '==', sector).onSnapshot(snap => {
+      managerContainer.innerHTML = '';
+      if (snap.empty) {
+        managerContainer.innerHTML = '<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📅</span><span>Nenhuma obrigação cadastrada.</span></div>';
+        return;
+      }
+      snap.forEach(doc => {
+        const item = doc.data();
+        const canEdit = item.authorId === currentUser?.uid || isManager;
+        const isDone = item.done === true;
+        const manDiv = document.createElement('div');
+        manDiv.className = 'notice-card' + (isDone ? ' agenda-done-card' : '');
+        manDiv.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;';
+        manDiv.innerHTML = `
         <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
           <div class="event-dot" style="background:${isDone ? 'var(--green)' : (item.color || 'var(--accent)')};width:12px;height:12px;flex-shrink:0;margin:0;"></div>
           <div style="min-width:0;">
@@ -30,9 +32,9 @@ function subscribeAgenda(sector) {
           ${canEdit && !isDone ? `<button class="btn-agenda-action" title="Editar" onclick="openAgendaEdit('${doc.id}', '${escHtml(item.title).replace(/'/g, "\\'")}', '${item.rawDate}', '${item.sector || 'geral'}')">✏️</button>` : ''}
           ${canEdit ? `<button class="btn-agenda-action btn-agenda-del" title="Excluir" onclick="deleteAgendaItem('${doc.id}')">🗑️</button>` : ''}
         </div>`;
-      managerContainer.appendChild(manDiv);
-    });
-  }, err => { console.warn('subscribeAgenda error:', err.message); });
+        managerContainer.appendChild(manDiv);
+      });
+    }, err => { console.warn('subscribeAgenda error:', err.message); });
 }
 
 function subscribeAgendaRightPanel() {
@@ -76,6 +78,7 @@ async function addAgendaItem() {
     const agSector = document.getElementById('agenda-sector')?.value || currentAgendaSector || 'fiscal';
     await db.collection('agenda').add({
       title, sub: subText, rawDate, recurrence, adjustment, color, sector: agSector,
+      tenantId: currentUser.tenantId, // ADICIONADO
       authorId: currentUser.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     document.getElementById('agenda-title').value = ''; document.getElementById('agenda-date').value = '';
@@ -137,11 +140,11 @@ async function saveAgendaEdit() {
 
     // Reconstrói a data visualzinha (ex: 25/03/2026) sem perder a recorrência original
     if (docSnap.exists) {
-        const oldData = docSnap.data();
-        const [yyyy, mm, dd] = date.split('-');
-        subText = `${dd}/${mm}/${yyyy}`;
-        if (oldData.recurrence && oldData.recurrence !== 'Única') subText += ` · ${oldData.recurrence}`;
-        if (oldData.adjustment && oldData.adjustment !== 'Manter') subText += ` · ${oldData.adjustment}`;
+      const oldData = docSnap.data();
+      const [yyyy, mm, dd] = date.split('-');
+      subText = `${dd}/${mm}/${yyyy}`;
+      if (oldData.recurrence && oldData.recurrence !== 'Única') subText += ` · ${oldData.recurrence}`;
+      if (oldData.adjustment && oldData.adjustment !== 'Manter') subText += ` · ${oldData.adjustment}`;
     }
 
     // Atualiza o documento no banco de dados com os Nomes de Campos Corretos!
@@ -205,20 +208,22 @@ let unsubClients = null;
 function subscribeClients() {
   const area = document.getElementById('client-list-area');
   if (unsubClients) unsubClients();
-  unsubClients = db.collection('clients').orderBy('razao', 'asc').onSnapshot(snap => {
-    area.innerHTML = '';
-    if (snap.empty) { area.innerHTML = `<div class="chat-empty" style="margin-top:40px;"><span style="font-size:2rem">🏢</span><span>Nenhum cliente cadastrado.</span></div>`; return; }
+  unsubClients = db.collection('clients')
+    .where('tenantId', '==', currentUser.tenantId) // ADICIONADO
+    .orderBy('razao', 'asc').onSnapshot(snap => {
+      area.innerHTML = '';
+      if (snap.empty) { area.innerHTML = `<div class="chat-empty" style="margin-top:40px;"><span style="font-size:2rem">🏢</span><span>Nenhum cliente cadastrado.</span></div>`; return; }
 
-    snap.forEach(doc => {
-      const c = doc.data();
-      const card = document.createElement('div');
-      card.className = 'notice-card';
+      snap.forEach(doc => {
+        const c = doc.data();
+        const card = document.createElement('div');
+        card.className = 'notice-card';
 
-      // Tratamento para não perder os dados antigos do e-cac caso eles existam
-      const codStr = c.codigo || c.ecac || 'Não inf.';
-      const filStr = c.filial || 'Matriz';
+        // Tratamento para não perder os dados antigos do e-cac caso eles existam
+        const codStr = c.codigo || c.ecac || 'Não inf.';
+        const filStr = c.filial || 'Matriz';
 
-      card.innerHTML = `
+        card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
           <div>
             <span class="notice-tag" style="background:var(--surface); color:var(--accent2); border: 1px solid var(--border);">${escHtml(c.regime)}</span>
@@ -234,9 +239,9 @@ function subscribeClients() {
             <button class="btn-del" onclick="deleteClient('${doc.id}')" title="Excluir" style="padding: 6px; border-radius: 6px; cursor:pointer;">🗑️</button>
           </div>
         </div>`;
-      area.appendChild(card);
-    });
-  }, error => { console.error("Erro no Firebase (Clientes):", error); });
+        area.appendChild(card);
+      });
+    }, error => { console.error("Erro no Firebase (Clientes):", error); });
 }
 
 async function addClient() {
@@ -254,22 +259,29 @@ async function addClient() {
 
   try {
     // 1. VERIFICA SE O CNPJ JÁ EXISTE NO SISTEMA
-    const cnpjQuery = await db.collection('clients').where('cnpj', '==', cnpj).get();
-    if (!cnjQuery.empty) {
+    const cnpjQuery = await db.collection('clients')
+      .where('tenantId', '==', currentUser.tenantId)
+      .where('cnpj', '==', cnpj).get();
+
+    // 👇 O ERRO ESTAVA AQUI: faltava o "p" na variável cnpjQuery 👇
+    if (!cnpjQuery.empty) {
       const clienteExistente = cnpjQuery.docs[0].data().razao;
       alert(`⚠️ Cadastro Bloqueado!\n\nEste CNPJ já está cadastrado no sistema e pertence ao cliente:\n🏢 ${clienteExistente}`);
       btn.textContent = '+ Cliente'; btn.disabled = false;
-      return; // Interrompe a criação
+      return;
     }
 
-    // 2. VERIFICA SE O CÓDIGO DO CLIENTE JÁ EXISTE (Apenas se o campo foi preenchido)
+    // 2. VERIFICA SE O CÓDIGO DO CLIENTE JÁ EXISTE
     if (codigo) {
-      const codQuery = await db.collection('clients').where('codigo', '==', codigo).get();
+      const codQuery = await db.collection('clients')
+        .where('tenantId', '==', currentUser.tenantId)
+        .where('codigo', '==', codigo).get();
+
       if (!codQuery.empty) {
         const clienteExistente = codQuery.docs[0].data().razao;
         alert(`⚠️ Cadastro Bloqueado!\n\nO Cód. Cliente "${codigo}" já está sendo usado pelo cliente:\n🏢 ${clienteExistente}`);
         btn.textContent = '+ Cliente'; btn.disabled = false;
-        return; // Interrompe a criação
+        return;
       }
     }
 
@@ -278,6 +290,7 @@ async function addClient() {
     // 3. Tudo certo! Salva o novo cliente
     await db.collection('clients').add({
       razao, cnpj, regime, codigo, filial,
+      tenantId: currentUser.tenantId, // 👉 Associa o cliente à empresa correta
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
@@ -332,9 +345,11 @@ async function saveClientEdit() {
   btn.disabled = true;
 
   try {
-    // 1. VERIFICA DUPLICIDADE DE CNPJ (Ignorando o próprio cliente que está sendo editado)
-    const cnpjQuery = await db.collection('clients').where('cnpj', '==', cnpj).get();
-    const cnpjDuplicado = cnpjQuery.docs.find(doc => doc.id !== id); // Procura se outro ID tem esse CNPJ
+    // 1. VERIFICA DUPLICIDADE DE CNPJ
+    const cnpjQuery = await db.collection('clients')
+      .where('tenantId', '==', currentUser.tenantId) // 👉 Filtro obrigatório
+      .where('cnpj', '==', cnpj).get();
+    const cnpjDuplicado = cnpjQuery.docs.find(doc => doc.id !== id);
 
     if (cnpjDuplicado) {
       alert(`⚠️ Alteração Bloqueada!\n\nEste CNPJ já está vinculado a outro cliente no sistema:\n🏢 ${cnpjDuplicado.data().razao}`);
@@ -342,9 +357,10 @@ async function saveClientEdit() {
       return;
     }
 
-    // 2. VERIFICA DUPLICIDADE DE CÓDIGO (Ignorando o próprio cliente)
     if (codigo) {
-      const codQuery = await db.collection('clients').where('codigo', '==', codigo).get();
+      const codQuery = await db.collection('clients')
+        .where('tenantId', '==', currentUser.tenantId) // 👉 Filtro obrigatório
+        .where('codigo', '==', codigo).get();
       const codDuplicado = codQuery.docs.find(doc => doc.id !== id);
 
       if (codDuplicado) {
@@ -462,7 +478,6 @@ async function updateProfile() {
 //  ADMINISTRAÇÃO DE USUÁRIOS (Gestor)
 // ════════════════════════════════════════════
 let editingUserId = null;
-let unsubUsers = null;
 
 function showFeedback(el, msg, color) {
   el.textContent = msg; el.style.color = color; el.style.display = 'block';
@@ -501,18 +516,19 @@ function initUsersAdmin() {
   if (btn) btn.style.display = isGestorRole ? '' : 'none';
   if (!isGestorRole) return;
   if (unsubUsers) { unsubUsers(); unsubUsers = null; }
-  unsubUsers = db.collection('users').onSnapshot(snap => {
-    const container = $('users-admin-list'); const label = document.getElementById('users-count-label');
-    if (!container) return; container.innerHTML = '';
-    if (label) label.textContent = snap.size + ' usuário(s) cadastrado(s)';
-    snap.forEach(doc => {
-      const u = doc.data(); const isSelf = doc.id === currentUser?.uid;
-      const roleLabel = { fiscal: 'Dep. Fiscal', dp: 'Dep. Pessoal', contabil: 'Dep. Contábil', gestor: 'Gestor' }[u.role] || u.role || '—';
-      const card = document.createElement('div'); card.className = 'user-admin-card';
-      card.innerHTML = `<div class="user-av" style="background:${u.color || '#3a4060'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0">${u.initials || '?'}</div><div class="uac-info"><div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span style="font-size:10px;color:var(--muted)">(você)</span>' : ''}</div><div class="uac-role">${escHtml(roleLabel)}</div><div class="uac-email">${escHtml(u.email || '')}</div></div><div class="uac-actions"><button class="btn-uac-edit" onclick="openUserEdit('${doc.id}')">✏️</button>${!isSelf ? `<button class="btn-uac-del" onclick="deleteUser('${doc.id}')">🗑️</button>` : ''}</div>`;
-      container.appendChild(card);
+  unsubUsers = db.collection('users')
+    .where('tenantId', '==', currentUser.tenantId).onSnapshot(snap => {
+      const container = $('users-admin-list'); const label = document.getElementById('users-count-label');
+      if (!container) return; container.innerHTML = '';
+      if (label) label.textContent = snap.size + ' usuário(s) cadastrado(s)';
+      snap.forEach(doc => {
+        const u = doc.data(); const isSelf = doc.id === currentUser?.uid;
+        const roleLabel = { fiscal: 'Dep. Fiscal', dp: 'Dep. Pessoal', contabil: 'Dep. Contábil', gestor: 'Gestor' }[u.role] || u.role || '—';
+        const card = document.createElement('div'); card.className = 'user-admin-card';
+        card.innerHTML = `<div class="user-av" style="background:${u.color || '#3a4060'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0">${u.initials || '?'}</div><div class="uac-info"><div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span style="font-size:10px;color:var(--muted)">(você)</span>' : ''}</div><div class="uac-role">${escHtml(roleLabel)}</div><div class="uac-email">${escHtml(u.email || '')}</div></div><div class="uac-actions"><button class="btn-uac-edit" onclick="openUserEdit('${doc.id}')">✏️</button>${!isSelf ? `<button class="btn-uac-del" onclick="deleteUser('${doc.id}')">🗑️</button>` : ''}</div>`;
+        container.appendChild(card);
+      });
     });
-  });
 }
 
 function openCreateUser() {
@@ -572,7 +588,11 @@ async function createUser() {
     const secondaryAuth = secondaryApp.auth();
     const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
     const uid = cred.user.uid; const initials = ((name[0] || '') + (surname[0] || '')).toUpperCase();
-    await db.collection('users').doc(uid).set({ name, surname, email, role, color, initials, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection('users').doc(uid).set({
+      name, surname, email, role, color, initials,
+      tenantId: currentUser.tenantId, // ADICIONADO: O novo funcionário pertence a este escritório
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     await secondaryAuth.signOut(); await secondaryApp.delete();
     showFeedback(feedback, '✅ Usuário criado com sucesso!', 'var(--green)');
     setTimeout(() => { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }, 2000);
@@ -580,4 +600,32 @@ async function createUser() {
     const msgs = { 'auth/email-already-in-use': 'Este e-mail já está em uso.', 'auth/invalid-email': 'E-mail inválido.' };
     showFeedback(feedback, '❌ ' + (msgs[e.code] || e.message), 'var(--red)');
   } finally { btn.textContent = 'Criar Usuário'; btn.disabled = false; }
+}
+
+async function generateInviteLink() {
+  const email = document.getElementById('invite-email').value.trim();
+  const role = document.getElementById('invite-role').value;
+
+  if (!email) return alert("Digite o e-mail do funcionário.");
+
+  try {
+    const inviteRef = await db.collection('invites').add({
+      email,
+      role,
+      tenantId: currentUser.tenantId,
+      status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Gera o link apontando para uma nova página de aceite
+
+    const inviteLink = window.location.href.replace("escritorio-virtual.html", "aceitar-convite.html") + "?id=" + inviteRef.id;
+
+    document.getElementById('invite-link-display').style.display = 'block';
+    document.getElementById('generated-link').value = inviteLink;
+
+    alert("Link de convite gerado com sucesso!");
+  } catch (error) {
+    console.error("Erro ao gerar convite:", error);
+  }
 }

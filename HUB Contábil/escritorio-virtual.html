@@ -89,7 +89,7 @@
         <button class="tab-btn" onclick="switchTab('tarefas',this)"><i class="fas fa-check-double"></i> Tarefas</button>
         <button class="tab-btn" onclick="switchTab('agenda',this)"><i class="fas fa-calendar-alt"></i> Agenda</button>
         <button class="tab-btn" onclick="switchTab('clientes',this)"><i class="fas fa-building"></i> Clientes</button>
-        <button class="tab-btn" onclick="switchTab('mapa',this)"><i class="fas fa-map-marked-alt"></i> Mapa</button>
+        <!-- <button class="tab-btn" onclick="switchTab('mapa',this)"><i class="fas fa-map-marked-alt"></i> Mapa</button> -->
         <button class="tab-btn" id="btn-tab-usuarios" onclick="switchTab('usuarios',this)" style="display:none"><i
             class="fas fa-users-cog"></i> Usuários</button>
       </div>
@@ -321,7 +321,7 @@
         </div>
       </div>
 
-      <div class="tab-panel" id="tab-mapa" style="position: relative;">
+      <!-- <div class="tab-panel" id="tab-mapa" style="position: relative;">
         <div class="users-admin-header" style="border-bottom: 1px solid var(--border); padding: 16px 20px;">
           <h2>🗺️ Escritório Virtual</h2>
           <span style="font-size:12px;color:var(--muted)">Use as setas (ou W A S D) no PC, ou o Joystick no
@@ -343,7 +343,7 @@
             <i class="fas fa-sign-in-alt"></i> <span>Entrar</span>
           </button>
         </div>
-      </div>
+      </div> -->
 
       <div class="tab-panel" id="tab-usuarios">
         <div class="users-admin-wrap">
@@ -405,6 +405,7 @@
                 <div id="new-user-feedback" style="margin-top:8px;font-size:12px;display:none"></div>
               </div>
 
+
               <h3 id="uform-title">✏️ Editar Usuário</h3>
               <div id="uform-wrap" style="display:none">
                 <div class="form-group" style="margin-bottom:10px">
@@ -438,10 +439,33 @@
                 <div style="font-size:2rem;margin-bottom:8px">👆</div>
                 Selecione um usuário para editar<br>ou clique em <strong>+ Novo Usuário</strong>
               </div>
+
+            </div>
+
+          </div>
+          <div class="invite-section"
+            style="background: var(--surface); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+            <h3 style="margin-top: 0; font-size: 16px;">Convidar Membro da Equipe</h3>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <input type="email" id="invite-email" placeholder="E-mail do funcionário" style="flex: 1;">
+              <select id="invite-role">
+                <option value="fiscal">Dep. Fiscal</option>
+                <option value="dp">Dep. Pessoal</option>
+                <option value="contabil">Dep. Contábil</option>
+                <option value="gestor">Gestor</option>
+              </select>
+              <button class="btn-primary" onclick="generateInviteLink()">Gerar Link</button>
+            </div>
+            <div id="invite-link-display" style="margin-top: 15px; display: none;">
+              <p style="font-size: 12px; color: var(--muted);">Compartilhe este link com o funcionário:</p>
+              <input type="text" id="generated-link" readonly
+                style="width: 100%; background: var(--bg); color: var(--accent2); font-weight: bold;">
             </div>
           </div>
         </div>
+
       </div>
+
     </div>
     <div class="right-panel" id="right-panel">
       <div class="rp-section">
@@ -659,6 +683,7 @@
   <audio id="som-passos" src="sounds/step.mp3" preload="auto"></audio>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/app.js"></script>
   <script src="js/chat.js"></script>
@@ -666,6 +691,7 @@
   <script src="js/agenda-clientes.js?v=2"></script>
   <script src="js/mapa-virtual.js?v=10"></script>
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
+ 
 
 
 </body>

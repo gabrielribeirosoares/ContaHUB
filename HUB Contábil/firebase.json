@@ -1,15 +1,13 @@
-
- {
-   "auth": {
-     "providers": {}
-   },
-   "hosting": {
-     "public": ".",
-     "ignore": [
-       "firebase.json",
-      "**/*.rar",
-       "**/.*",
-       "**/node_modules/**"
-     ]
-   }
- }
+{
+  "auth": {
+    "providers": {}
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

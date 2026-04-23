@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>ContaHUB — Aceitar Convite</title>
+    <link href="assets/favicon.ico.png" rel="shortcut icon" type="image/x-icon" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/login.css">
+    <style>
+        /* Estilos específicos para a visualização de carregamento */
+        .loading-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-mesh">
+        <div class="bg-grid"></div>
+    </div>
+
+    <div class="split">
+        <div class="brand-panel">
+            <div class="brand-logo">
+                <div class="logo-box"><img alt="Logo ContaHub" src="assets/logo-contahub.png" /></div>
+                <span class="logo-name">ContaHUB</span>
+            </div>
+            <div>
+                <div class="brand-tagline">Bem-vindo à equipe!</div>
+                <div class="brand-desc" id="company-welcome">Você foi convidado para colaborar em um escritório digital.
+                </div>
+            </div>
+        </div>
+
+        <div class="form-panel">
+            <div id="view-loading" class="form-view active">
+                <div class="loading-view">
+                    <div class="form-title">Validando Convite...</div>
+                    <p style="color: var(--muted);">Aguarde um instante enquanto verificamos seus dados.</p>
+                </div>
+            </div>
+
+            <div id="view-setup" class="form-view hidden">
+                <div class="form-title">Finalizar Cadastro</div>
+                <div class="form-subtitle">Crie sua senha para acessar o escritório</div>
+                <div id="setup-feedback" class="feedback"></div>
+
+                <div class="field">
+                    <label>Seu Nome</label>
+                    <input type="text" id="user-name" placeholder="Como quer ser chamado?">
+                </div>
+
+                <div class="field">
+                    <label>E-mail</label>
+                    <input type="email" id="user-email" readonly
+                        style="background: var(--bg); cursor: not-allowed; opacity: 0.7;">
+                </div>
+
+                <div class="field">
+                    <label>Crie sua Senha</label>
+                    <input type="password" id="user-password" placeholder="Mínimo 6 caracteres">
+                </div>
+
+                <button class="btn-primary" id="btn-finish" onclick="finishSetup()">Concluir e Entrar →</button>
+            </div>
+
+            <div id="view-error" class="form-view hidden">
+                <div class="form-title">Convite Inválido</div>
+                <div class="form-subtitle">Este link de convite expirou ou não existe.</div>
+                <p style="margin-top: 20px; color: var(--muted);">Peça ao seu gestor para gerar um novo convite.</p>
+                <a href="index.html" class="btn-primary"
+                    style="display: block; text-decoration: none; margin-top: 20px; text-align: center;">Voltar ao
+                    Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+
+    <script>
+        let inviteData = null;
+        let inviteId = null;
+
+        // Inicialização ao carregar a página
+        window.onload = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            inviteId = urlParams.get('id');
+
+            if (!inviteId) {
+                showView('view-error');
+                return;
+            }
+
+            try {
+                const doc = await db.collection('invites').doc(inviteId).get();
+                if (!doc.exists || doc.data().status !== 'pending') {
+                    showView('view-error');
+                    return;
+                }
+
+                inviteData = doc.data();
+
+                // Busca o nome da empresa para personalizar a mensagem
+                const tenantDoc = await db.collection('tenants').doc(inviteData.tenantId).get();
+                if (tenantDoc.exists) {
+                    document.getElementById('company-welcome').textContent = `Você foi convidado para se juntar à equipe da ${tenantDoc.data().name}.`;
+                }
+
+                // Preenche o e-mail (que já foi definido pelo gestor)
+                document.getElementById('user-email').value = inviteData.email;
+                showView('view-setup');
+
+            } catch (err) {
+                console.error(err);
+                showView('view-error');
+            }
+        };
+
+        function showView(viewId) {
+            document.querySelectorAll('.form-view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        async function finishSetup() {
+            const name = document.getElementById('user-name').value.trim();
+            const password = document.getElementById('user-password').value;
+            const feedback = document.getElementById('setup-feedback');
+            const btn = document.getElementById('btn-finish');
+
+            if (!name || password.length < 6) {
+                feedback.className = 'feedback error';
+                feedback.style.display = 'block';
+                feedback.textContent = 'Preencha seu nome e use uma senha de no mínimo 6 dígitos.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Finalizando...";
+
+            try {
+                // 1. Criar o usuário no Firebase Auth
+                const cred = await auth.createUserWithEmailAndPassword(inviteData.email, password);
+                const uid = cred.user.uid;
+                const initials = name.substring(0, 2).toUpperCase();
+
+                // 2. Criar o perfil do usuário vinculado ao tenantId do convite
+                await db.collection('users').doc(uid).set({
+                    name: name,
+                    surname: '',
+                    email: inviteData.email,
+                    role: inviteData.role,
+                    tenantId: inviteData.tenantId,
+                    color: '#3a4060',
+                    initials: initials,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // 3. Marcar o convite como utilizado
+                await db.collection('invites').doc(inviteId).update({
+                    status: 'used',
+                    usedBy: uid,
+                    usedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                feedback.className = 'feedback success';
+                feedback.style.display = 'block';
+                feedback.textContent = 'Conta criada! Redirecionando...';
+
+                setTimeout(() => {
+                    window.location.href = 'escritorio-virtual.html';
+                }, 1500);
+
+            } catch (error) {
+                console.error(error);
+                btn.disabled = false;
+                btn.textContent = "Concluir e Entrar →";
+                feedback.className = 'feedback error';
+                feedback.style.display = 'block';
+                feedback.textContent = 'Erro ao criar conta. Talvez este e-mail já esteja em uso.';
+            }
+        }
+    </script>
+</body>
+
+</html>
