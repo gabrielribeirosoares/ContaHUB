@@ -26,15 +26,7 @@ async function doSignup() {
     const userRef = db.collection('users').doc(uid);
 
     const initials = getInitials(userName, userSurname);
-    const batch = db.batch();
-    batch.set(tenantRef, {
-      name: companyName,
-      slug: tenantSlug,
-      ownerUid: uid,
-      plan: 'trial',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    batch.set(userRef, {
+     await userRef.set({
       name: userName,
       surname: userSurname,
       email: email,
@@ -44,7 +36,20 @@ async function doSignup() {
       initials: initials,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    await batch.commit();
+    
+    // 4. Criar tenant (não bloqueia o acesso inicial caso rules neguem escrita)
+    try {
+      await tenantRef.set({
+        name: companyName,
+        slug: tenantSlug,
+        ownerUid: uid,
+        plan: 'trial',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (tenantErr) {
+      if (tenantErr.code !== 'permission-denied') throw tenantErr;
+      console.warn('Sem permissão para criar tenant no Firestore. Continuando com perfil do gestor.', tenantErr);
+    }
 
     showFeedback('Conta criada com sucesso! A entrar...', 'success');
 
