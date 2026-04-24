@@ -18,7 +18,8 @@ let unsubMural = null;
 let unsubTasks = null;
 let unsubAgenda = null;
 let unsubAgendaRP = null;
-let unsubUsers = null;
+let unsubUsersSidebar = null;
+let unsubUsersAdmin = null;
 let unreadObservers = {};
 let statusObservers = {}; // 🔴 NOVO: para limpar listeners de status
 let activeReply = null;
@@ -126,12 +127,12 @@ function initPresence() {
 //  CARREGAR USUÁRIOS (BARRA LATERAL)
 // ════════════════════════════════════════════
 function loadUsers() {
-  if (unsubUsers) unsubUsers();
-  
+  if (unsubUsersSidebar) unsubUsersSidebar();
+
   Object.values(statusObservers).forEach(unsub => unsub());
   statusObservers = {};
 
-  unsubUsers = db.collection('users')
+  unsubUsersSidebar = db.collection('users')
     .where('tenantId', '==', currentUser.tenantId)
     .onSnapshot(snap => {
       const container = $('users-sidebar');
@@ -159,9 +160,15 @@ function loadUsers() {
 
         if (!isMe) {
           div.onclick = () => { openDM(uid, nameStr, div); closeSidebar(); };
-          
+
           // 🔥 CORREÇÃO 1: Cria o ID da sala diretamente aqui, sem depender do chat.js (Restaura o Histórico)
-          const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
+          const roomId = typeof getDmDocId === 'function'
+            ? getDmDocId(currentUser.uid, uid)
+            : (currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`);
+
+          if (typeof ensureDmRoomExists === 'function') {
+            ensureDmRoomExists(roomId, uid).catch(() => { });
+          }
 
           if (!unreadObservers[roomId]) {
             unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages')
@@ -173,8 +180,29 @@ function loadUsers() {
                 });
                 const b = div.querySelector('.unread-badge');
                 if (b) { b.textContent = dmCount; b.style.display = dmCount > 0 ? 'inline-block' : 'none'; }
+              
+                if (dmBootstrapped && !s.metadata.fromCache) {
+                  const lastAdded = s.docChanges().filter(c => c.type === 'added').map(c => c.doc.data())
+                    .find(m => m.authorId !== currentUser.uid);
+                  if (lastAdded) {
+                    notifySound.play().catch(() => {});
+                    if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+                      const notification = new Notification(`ContaHub: Nova mensagem de ${nameStr}`, {
+                        body: lastAdded.text || '📎 Ficheiro anexado',
+                        icon: 'logo-contahub.png'
+                      });
+                      notification.onclick = function() { window.focus(); };
+                    }
+                  }
+                }
+                dmBootstrapped = true;
               }, err => {
-                if (err.code !== 'permission-denied') console.error('DM listener erro:', err);
+                if (err.code === 'permission-denied') {
+                  const b = div.querySelector('.unread-badge');
+                  if (b) b.style.display = 'none';
+                  return;
+                }
+                console.error('DM listener erro:', err);
               });
           }
         } else {
@@ -226,16 +254,43 @@ auth.onAuthStateChanged(async user => {
 
   try {
     const snap = await db.collection('users').doc(user.uid).get();
-    currentUser = snap.exists
-      ? { uid: user.uid, ...snap.data() }
-      : { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
+    if (snap.exists) {
+      currentUser = { uid: user.uid, ...snap.data() };
+    } else {
+      const defaultName = (user.displayName || user.email || 'Gestor').split('@')[0];
+      currentUser = {
+        uid: user.uid,
+        name: defaultName,
+        surname: '',
+        initials: (defaultName || 'G').substring(0, 2).toUpperCase(),
+        color: '#c9a84c',
+        role: 'gestor',
+        tenantId: user.uid
+      };
+
+      try {
+        await db.collection('users').doc(user.uid).set({
+          name: currentUser.name,
+          surname: '',
+          email: user.email || '',
+          role: 'gestor',
+          tenantId: user.uid,
+          color: currentUser.color,
+          initials: currentUser.initials,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (bootstrapErr) {
+        if (bootstrapErr.code !== 'permission-denied') throw bootstrapErr;
+        console.warn('Sem permissão para bootstrap do perfil. Usando perfil local de gestor.', bootstrapErr);
+      }
+    }
 
     if (!currentUser.tenantId) {
       console.warn("⚠️ Utilizador sem tenantId!");
-      currentUser.tenantId = "empresa_teste";
+      currentUser.tenantId = user.uid;
     }
   } catch (e) {
-    currentUser = { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
+    currentUser = { uid: user.uid, name: 'Gestor', surname: '', initials: 'GE', color: '#c9a84c', role: 'gestor', tenantId: user.uid };
   }
 
   // Atualiza a interface
@@ -246,6 +301,7 @@ auth.onAuthStateChanged(async user => {
   // Inicia os serviços principais
   initPresence();
   loadUsers(); // 🟢 ÚNICA CHAMADA
+  if (typeof initUnreadCounters === 'function') initUnreadCounters()
 
   if (typeof getChannelDocId === 'function' && typeof subscribeChat === 'function') {
     const roomDocId = getChannelDocId(currentChannel);
@@ -285,16 +341,17 @@ async function doLogout() {
   if (unsubTasks) unsubTasks();
   if (unsubAgenda) unsubAgenda();
   if (unsubAgendaRP) unsubAgendaRP();
-  if (unsubUsers) unsubUsers();
+  if (unsubUsersSidebar) unsubUsersSidebar();
+  if (unsubUsersAdmin) unsubUsersAdmin();
   if (unsubTyping) { unsubTyping(); unsubTyping = null; }
-  
+
   Object.values(unreadObservers).forEach(u => u());
   Object.values(statusObservers).forEach(u => u()); // 🟢 LIMPA STATUS LISTENERS
-  
+
   // Reseta objetos de listeners
   unreadObservers = {};
   statusObservers = {};
-  
+
   await auth.signOut();
 }
 
@@ -328,24 +385,24 @@ function initUsersAdmin() {
   const btn = document.getElementById('btn-tab-usuarios');
   if (btn) btn.style.display = isGestorRole ? '' : 'none';
   if (!isGestorRole) return;
-  
-  if (unsubUsers) { unsubUsers(); unsubUsers = null; } // Usa o mesmo listener
-  
-  unsubUsers = db.collection('users')
+
+  if (unsubUsersAdmin) { unsubUsersAdmin(); unsubUsersAdmin = null; }
+
+  unsubUsersAdmin = db.collection('users')
     .where('tenantId', '==', currentUser.tenantId).onSnapshot(snap => {
       const container = $('users-admin-list');
       const label = document.getElementById('users-count-label');
-      if (!container) return; 
+      if (!container) return;
       container.innerHTML = '';
-      
+
       if (label) label.textContent = snap.size + ' usuário(s) cadastrado(s)';
-      
+
       snap.forEach(doc => {
-        const u = doc.data(); 
+        const u = doc.data();
         const isSelf = doc.id === currentUser?.uid;
         const roleLabel = { fiscal: 'Dep. Fiscal', dp: 'Dep. Pessoal', contabil: 'Dep. Contábil', gestor: 'Gestor' }[u.role] || u.role || '—';
-        
-        const card = document.createElement('div'); 
+
+        const card = document.createElement('div');
         card.className = 'user-admin-card';
         card.innerHTML = `
           <div class="user-av" style="background:${u.color || '#3a4060'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0">${u.initials || '?'}</div>

@@ -14,12 +14,23 @@ const getDmDocId = (uid1, uid2) => {
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 };
 
+async function ensureDmRoomExists(roomId, targetUid) {
+  if (!currentUser || !roomId || !targetUid) return;
+  await db.collection('directMessages').doc(roomId).set({
+    tenantId: currentUser.tenantId || null,
+    participants: [currentUser.uid, targetUid],
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+
 // ════════════════════════════════════════════
 //  NOTIFICAÇÕES / UNREAD
 // ════════════════════════════════════════════
 function initUnreadCounters() {
   ['geral', 'fiscal', 'dp', 'contabil'].forEach(ch => {
     const channelId = getChannelDocId(ch);
+    if (typeof unreadObservers[ch] === 'function') unreadObservers[ch]();
     unreadObservers[ch] = db.collection('channels').doc(channelId).collection('messages').onSnapshot(snap => {
       let count = 0;
       snap.forEach(doc => {
@@ -32,13 +43,13 @@ function initUnreadCounters() {
       if (!snap.metadata.fromCache && snap.docChanges().some(c => c.type === 'added')) {
         const lastMsg = snap.docChanges().find(c => c.type === 'added').doc.data();
         if (lastMsg.authorId !== currentUser.uid && lastMsg.createdAt) {
-          notifySound.play().catch(() => {});
+          notifySound.play().catch(() => { });
           if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
             const notification = new Notification(`ContaHub: Nova mensagem em #${ch}`, {
               body: lastMsg.text ? lastMsg.text : '📎 Ficheiro anexado',
               icon: 'logo-contahub.png'
             });
-            notification.onclick = function() { window.focus(); };
+            notification.onclick = function () { window.focus(); };
           }
         }
       }
@@ -107,7 +118,7 @@ function switchChannel(el) {
   if (typeof closeSidebar === 'function') closeSidebar();
 }
 
-function openDM(targetUid, targetName, el) {
+async function openDM(targetUid, targetName, el) {
   chatLimit = 30;
   isPaginating = false;
   isLoadingMore = false;
@@ -128,6 +139,7 @@ function openDM(targetUid, targetName, el) {
 
   if (unsubChat) unsubChat();
   cancelReply();
+  await ensureDmRoomExists(roomId, targetUid);
   markAsRead('directMessages', roomId);
   subscribeChat('directMessages', roomId, currentChatTargetName);
 
@@ -174,9 +186,9 @@ function setTyping(isTyping) {
     if (isTyping) {
       ref.set({ typing: { [currentUser.uid]: { name: currentUser.name, ts: Date.now() } } }, { merge: true });
     } else {
-      ref.update({ [`typing.${currentUser.uid}`]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+      ref.update({ [`typing.${currentUser.uid}`]: firebase.firestore.FieldValue.delete() }).catch(() => { });
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function subscribeTyping(colName, docId) {
@@ -199,6 +211,8 @@ function subscribeTyping(colName, docId) {
         el.classList.remove('visible');
       }
     }
+  }, err => {
+    if (err.code !== 'permission-denied') console.error('Erro no typing listener:', err);
   });
 }
 
@@ -323,6 +337,12 @@ function listenToMessages(collectionName, docId, displayName) {
       } else {
         container.scrollTop = container.scrollHeight;
       }
+    }, err => {
+      if (err.code === 'permission-denied') {
+        container.innerHTML = `<div class="chat-empty"><span style="font-size:2rem">🔒</span><span>Sem permissão para abrir esta conversa.</span></div>`;
+        return;
+      }
+      console.error('Erro ao carregar mensagens:', err);
     });
 }
 
@@ -341,6 +361,7 @@ async function sendMsg() {
   const colName = isDM ? 'directMessages' : 'channels';
   const docId = isDM ? getDmDocId(currentUser.uid, currentDM) : getChannelDocId(currentChannel);
   try {
+    if (isDM) await ensureDmRoomExists(docId, currentDM);
     if (pendingFile) {
       const fileRef = storage.ref(`${colName}/${docId}/${Date.now()}_${pendingFile.name}`);
       const snapshot = await fileRef.put(pendingFile);
@@ -410,7 +431,7 @@ const chatInput = document.getElementById('chat-input');
 let isCurrentlyTyping = false;
 
 if (chatInput) {
-  chatInput.addEventListener('keydown', function(event) {
+  chatInput.addEventListener('keydown', function (event) {
     if (event.key === 'Enter') {
       sendMsg();
       isCurrentlyTyping = false;
