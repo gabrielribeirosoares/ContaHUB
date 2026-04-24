@@ -541,8 +541,14 @@
       border-radius: 50%;
       flex-shrink: 0;
       margin-left: auto;
-      background: #e05f5f !important;
+      background: #e05f5f;
+      /* Fundo vermelho padrão */
       transition: background 0.3s ease;
+    }
+
+    .dot.online {
+      background: var(--green) !important;
+      /* Fica verde apenas se tiver a classe 'online' */
     }
 
     /* ── MAIN AREA ── */

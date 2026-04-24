@@ -1,6 +1,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyC22FVhiAZqvRAln6gcIS1vnpGLSgRO5hg",
   authDomain: "triade-contabilidade.firebaseapp.com",
+  databaseURL: "https://triade-contabilidade-default-rtdb.firebaseio.com", // <-- "URL" maiúsculo e sem a barra (/) no final
   projectId: "triade-contabilidade",
   storageBucket: "triade-contabilidade.firebasestorage.app",
   messagingSenderId: "45393904968",

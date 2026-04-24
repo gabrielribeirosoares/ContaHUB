@@ -20,6 +20,7 @@ let unsubAgenda = null;
 let unsubAgendaRP = null;
 let unsubUsers = null;
 let unreadObservers = {};
+let statusObservers = {}; // 🔴 NOVO: para limpar listeners de status
 let activeReply = null;
 let pendingFile = null;
 const notifySound = new Audio("./sounds/step.mp3");
@@ -121,8 +122,14 @@ function initPresence() {
 // ════════════════════════════════════════════
 //  CARREGAR USUÁRIOS (BARRA LATERAL)
 // ════════════════════════════════════════════
+// ════════════════════════════════════════════
+//  CARREGAR USUÁRIOS (BARRA LATERAL)
+// ════════════════════════════════════════════
 function loadUsers() {
   if (unsubUsers) unsubUsers();
+  
+  Object.values(statusObservers).forEach(unsub => unsub());
+  statusObservers = {};
 
   unsubUsers = db.collection('users')
     .where('tenantId', '==', currentUser.tenantId)
@@ -152,8 +159,9 @@ function loadUsers() {
 
         if (!isMe) {
           div.onclick = () => { openDM(uid, nameStr, div); closeSidebar(); };
-
-          const roomId = getDmDocId(currentUser.uid, uid);
+          
+          // 🔥 CORREÇÃO 1: Cria o ID da sala diretamente aqui, sem depender do chat.js (Restaura o Histórico)
+          const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
 
           if (!unreadObservers[roomId]) {
             unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages')
@@ -173,44 +181,45 @@ function loadUsers() {
           div.style.cursor = 'default';
         }
 
-        // ✅ Bolinha começa vermelha (offline) por padrão
         div.innerHTML = `
-          <div class="dot dot-${uid}" title="Offline"></div>
           <div class="user-av" style="background:${u.color || '#3a4060'}">${u.initials || '??'}</div>
           <div>
             <div class="user-name">${nameStr} ${isMe ? '<span style="color:var(--muted);font-size:10px">(Você)</span>' : ''}</div>
             <div class="user-status">${u.role || ''}</div>
           </div>
           <span class="unread-badge"></span>
-          `;
+          <div class="dot dot-${uid}" title="Offline"></div>
+        `;
 
-        // ✅ Insere no DOM antes do listener
         container.appendChild(div);
 
-
-        rtdb.ref(`/status/${uid}`).on('value', statusSnap => {
-          console.log(`[RTDB] uid=${uid} status=`, statusSnap.val());
+        const statusRef = rtdb.ref(`/status/${uid}`);
+        const listener = statusRef.on('value', statusSnap => {
           const status = statusSnap.val();
           const dot = div.querySelector(`.dot-${uid}`);
           if (dot) {
-            const isOnline = status
-              && status.state === 'online'
-              && (Date.now() - status.lastChanged) < 30 * 60 * 1000;
-            dot.style.setProperty('background', isOnline ? 'var(--green)' : '#e05f5f', 'important');
-            dot.title = isOnline ? 'Online' : 'Offline';
+            const isOnline = status && status.state === 'online';
+            if (isOnline) {
+              dot.classList.add('online');
+              dot.title = 'Online';
+            } else {
+              dot.classList.remove('online');
+              dot.title = 'Offline';
+            }
           }
         });
+        statusObservers[uid] = () => statusRef.off('value', listener);
       });
 
       const statMembers = $('stat-members');
       if (statMembers) statMembers.textContent = count;
     }, err => {
-      console.error('loadUsers erro:', err);
+      console.error('Erro crítico no loadUsers:', err);
     });
 }
 
 // ════════════════════════════════════════════
-//  AUTH & INICIALIZAÇÃO
+//  AUTH & INICIALIZAÇÃO DO SISTEMA
 // ════════════════════════════════════════════
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
@@ -229,29 +238,38 @@ auth.onAuthStateChanged(async user => {
     currentUser = { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
   }
 
+  // Atualiza a interface
   $('user-avatar').textContent = currentUser.initials || 'US';
   $('user-avatar').style.background = currentUser.color || '#3a4060';
   $('user-name-text').textContent = currentUser.name + ' ' + (currentUser.surname || '');
 
+  // Inicia os serviços principais
   initPresence();
-  loadUsers();
+  loadUsers(); // 🟢 ÚNICA CHAMADA
 
-  const roomDocId = getChannelDocId(currentChannel);
-  subscribeChat('channels', roomDocId, currentChatTargetName);
+  if (typeof getChannelDocId === 'function' && typeof subscribeChat === 'function') {
+    const roomDocId = getChannelDocId(currentChannel);
+    subscribeChat('channels', roomDocId, currentChatTargetName);
+  }
 
   if (typeof subscribeMural === 'function') subscribeMural();
   if (typeof initSectorViews === 'function') initSectorViews();
   if (typeof subscribeClients === 'function') subscribeClients();
 
+  if (isGestor()) {
+    const btnGerar = document.getElementById('btn-gerar-tarefas');
+    if (btnGerar) btnGerar.style.display = 'inline-block';
+  }
+
   setTimeout(() => {
     const loader = $('loading-overlay');
     if (loader) loader.classList.add('hidden');
-    showStartupAlert();
+    if (typeof showStartupAlert === 'function') showStartupAlert();
   }, 600);
 });
 
 // ════════════════════════════════════════════
-//  LOGOUT
+//  LOGOUT (com cleanup completo)
 // ════════════════════════════════════════════
 async function doLogout() {
   if (currentUser) {
@@ -260,6 +278,8 @@ async function doLogout() {
       lastChanged: firebase.database.ServerValue.TIMESTAMP
     });
   }
+
+  // Limpa todos os listeners
   if (unsubChat) unsubChat();
   if (unsubMural) unsubMural();
   if (unsubTasks) unsubTasks();
@@ -267,12 +287,19 @@ async function doLogout() {
   if (unsubAgendaRP) unsubAgendaRP();
   if (unsubUsers) unsubUsers();
   if (unsubTyping) { unsubTyping(); unsubTyping = null; }
+  
   Object.values(unreadObservers).forEach(u => u());
+  Object.values(statusObservers).forEach(u => u()); // 🟢 LIMPA STATUS LISTENERS
+  
+  // Reseta objetos de listeners
+  unreadObservers = {};
+  statusObservers = {};
+  
   await auth.signOut();
 }
 
 // ════════════════════════════════════════════
-//  NOTIFICAÇÕES
+//  NOTIFICAÇÕES E ALERTAS
 // ════════════════════════════════════════════
 document.body.addEventListener('click', () => {
   if (typeof Notification !== 'undefined') {
@@ -284,89 +311,159 @@ document.body.addEventListener('click', () => {
   }
 }, { once: true });
 
+// ... (resto das funções permanecem iguais: showStartupAlert, closeStartupAlert, openLightbox, etc.)
+
 // ════════════════════════════════════════════
-//  ALERTA INICIAL
+//  ADMINISTRAÇÃO DE USUÁRIOS (Gestor)
 // ════════════════════════════════════════════
-async function showStartupAlert() {
-  const alertEl = document.getElementById('startup-alert');
-  const bodyEl = document.getElementById('startup-alert-body');
-  if (!alertEl || !bodyEl || !currentUser) return;
+let editingUserId = null;
+
+function showFeedback(el, msg, color) {
+  el.textContent = msg; el.style.color = color; el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function initUsersAdmin() {
+  const isGestorRole = isGestor();
+  const btn = document.getElementById('btn-tab-usuarios');
+  if (btn) btn.style.display = isGestorRole ? '' : 'none';
+  if (!isGestorRole) return;
+  
+  if (unsubUsers) { unsubUsers(); unsubUsers = null; } // Usa o mesmo listener
+  
+  unsubUsers = db.collection('users')
+    .where('tenantId', '==', currentUser.tenantId).onSnapshot(snap => {
+      const container = $('users-admin-list');
+      const label = document.getElementById('users-count-label');
+      if (!container) return; 
+      container.innerHTML = '';
+      
+      if (label) label.textContent = snap.size + ' usuário(s) cadastrado(s)';
+      
+      snap.forEach(doc => {
+        const u = doc.data(); 
+        const isSelf = doc.id === currentUser?.uid;
+        const roleLabel = { fiscal: 'Dep. Fiscal', dp: 'Dep. Pessoal', contabil: 'Dep. Contábil', gestor: 'Gestor' }[u.role] || u.role || '—';
+        
+        const card = document.createElement('div'); 
+        card.className = 'user-admin-card';
+        card.innerHTML = `
+          <div class="user-av" style="background:${u.color || '#3a4060'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0">${u.initials || '?'}</div>
+          <div class="uac-info">
+            <div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span style="font-size:10px;color:var(--muted)">(você)</span>' : ''}</div>
+            <div class="uac-role">${escHtml(roleLabel)}</div>
+            <div class="uac-email">${escHtml(u.email || '')}</div>
+          </div>
+          <div class="uac-actions">
+            <button class="btn-uac-edit" onclick="openUserEdit('${doc.id}')">✏️</button>
+            ${!isSelf ? `<button class="btn-uac-del" onclick="deleteUser('${doc.id}')">🗑️</button>` : ''}
+          </div>`;
+        container.appendChild(card);
+      });
+    });
+}
+
+function openCreateUser() {
+  editingUserId = null;
+  document.getElementById('uform-create').style.display = 'block'; document.getElementById('uform-wrap').style.display = 'none';
+  document.getElementById('uform-placeholder').style.display = 'none'; document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+  ['new-user-name', 'new-user-surname', 'new-user-email', 'new-user-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('new-user-role').value = ''; document.getElementById('new-user-color').value = '#3a4060'; document.getElementById('new-user-feedback').style.display = 'none';
+}
+
+function cancelCreateUser() { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }
+
+function openUserEdit(uid) {
+  editingUserId = uid;
+  db.collection('users').doc(uid).get().then(doc => {
+    if (!doc.exists) return;
+    const u = doc.data();
+    document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-name').value = (u.name || '') + ' ' + (u.surname || '');
+    document.getElementById('uform-role').value = u.role || ''; document.getElementById('uform-color').value = u.color || '#3a4060';
+    document.getElementById('uform-wrap').style.display = 'block'; document.getElementById('uform-placeholder').style.display = 'none';
+    document.getElementById('uform-title').textContent = '✏️ Editar: ' + escHtml(u.name || ''); document.getElementById('uform-feedback').style.display = 'none';
+  });
+}
+
+async function saveUserEdit() {
+  if (!editingUserId) return;
+  const fullName = document.getElementById('uform-name').value.trim(); const role = document.getElementById('uform-role').value; const color = document.getElementById('uform-color').value;
+  const parts = fullName.split(' '); const name = parts[0] || ''; const surname = parts.slice(1).join(' '); const initials = ((name[0] || '') + (surname[0] || '')).toUpperCase() || '?';
+  try {
+    await db.collection('users').doc(editingUserId).update({ name, surname, role, color, initials });
+    if (editingUserId === currentUser?.uid) {
+      currentUser.name = name; currentUser.surname = surname; currentUser.role = role; currentUser.color = color; currentUser.initials = initials;
+      $('user-avatar').textContent = initials; $('user-avatar').style.background = color; $('user-name-text').textContent = fullName;
+      filterChannels(); initSectorViews();
+    }
+    const fb = document.getElementById('uform-feedback'); if (fb) { fb.style.display = 'block'; setTimeout(() => fb.style.display = 'none', 3000); }
+  } catch (e) { alert('Erro: ' + e.message); }
+}
+
+function cancelUserEdit() {
+  editingUserId = null; document.getElementById('uform-wrap').style.display = 'none'; document.getElementById('uform-create').style.display = 'none';
+  document.getElementById('uform-placeholder').style.display = 'block'; document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+}
+
+async function deleteUser(uid) { if (confirm('Remover este usuário do sistema?')) { try { await db.collection('users').doc(uid).delete(); } catch (e) { alert('Erro: ' + e.message); } } }
+
+async function createUser() {
+  const name = document.getElementById('new-user-name').value.trim(); const surname = document.getElementById('new-user-surname').value.trim();
+  const email = document.getElementById('new-user-email').value.trim(); const pass = document.getElementById('new-user-pass').value;
+  const role = document.getElementById('new-user-role').value; const color = document.getElementById('new-user-color').value;
+  const feedback = document.getElementById('new-user-feedback');
+  if (!name || !email || !pass || !role) { showFeedback(feedback, '⚠️ Preencha todos os campos obrigatórios.', 'var(--red)'); return; }
+  if (pass.length < 6) { showFeedback(feedback, '⚠️ A senha deve ter ao menos 6 caracteres.', 'var(--red)'); return; }
+  const btn = document.querySelector('#uform-create .btn-post'); btn.textContent = 'Criando...'; btn.disabled = true;
+  try {
+    const secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary_' + Date.now());
+    const secondaryAuth = secondaryApp.auth();
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+    const uid = cred.user.uid; const initials = ((name[0] || '') + (surname[0] || '')).toUpperCase();
+    // Localize esta parte dentro da função createUser()
+    await db.collection('users').doc(uid).set({
+      name,
+      surname,
+      email,
+      role,
+      color,
+      initials,
+      tenantId: currentUser.tenantId, // 🔴 ADICIONE ESTA LINHA
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await secondaryAuth.signOut(); await secondaryApp.delete();
+    showFeedback(feedback, '✅ Usuário criado com sucesso!', 'var(--green)');
+    setTimeout(() => { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }, 2000);
+  } catch (e) {
+    const msgs = { 'auth/email-already-in-use': 'Este e-mail já está em uso.', 'auth/invalid-email': 'E-mail inválido.' };
+    showFeedback(feedback, '❌ ' + (msgs[e.code] || e.message), 'var(--red)');
+  } finally { btn.textContent = 'Criar Usuário'; btn.disabled = false; }
+}
+
+async function generateInviteLink() {
+  const email = document.getElementById('invite-email').value.trim();
+  const role = document.getElementById('invite-role').value;
+
+  if (!email) return alert("Digite o e-mail do funcionário.");
 
   try {
-    const userSectors = getUserSectors(currentUser?.role || '');
-    if (!userSectors || userSectors.length === 0) return;
-
-    const snap = await db.collection('tasks')
-      .where('tenantId', '==', currentUser.tenantId)
-      .where('tag', 'in', userSectors)
-      .get();
-
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    let lateTasks = [], soonTasks = [];
-
-    snap.forEach(doc => {
-      const t = doc.data();
-      if (!t.due || t.column === 'done') return;
-      const d = new Date(t.due + 'T00:00:00');
-      const diff = Math.ceil((d - today) / 86400000);
-      if (diff < 0) lateTasks.push(t);
-      else if (diff <= 3) soonTasks.push(t);
+    const inviteRef = await db.collection('invites').add({
+      email,
+      role,
+      tenantId: currentUser.tenantId,
+      status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    if (lateTasks.length === 0 && soonTasks.length === 0) return;
+    // Gera o link apontando para uma nova página de aceite
 
-    const SECTOR_LABELS = { fiscal: 'Dep. Fiscal', dp: 'Dep. Pessoal', contabil: 'Dep. Contábil' };
-    let html = '';
+    const inviteLink = window.location.href.replace("escritorio-virtual.html", "aceitar-convite.html") + "?id=" + inviteRef.id;
 
-    if (lateTasks.length > 0) {
-      html += `<div style="color:var(--red);font-size:14px;font-weight:700;margin-bottom:8px;">⚠️ ${lateTasks.length} Tarefa(s) Atrasada(s):</div>`;
-      lateTasks.forEach(t => {
-        const data = t.due.split('-').reverse().join('/');
-        html += `<div style="background:rgba(224,95,95,0.08);padding:10px 14px;border-radius:8px;margin-bottom:8px;font-size:13px;border:1px solid rgba(224,95,95,0.3);display:flex;justify-content:space-between;align-items:center;">
-          <div><strong style="color:var(--text)">${escHtml(t.title)}</strong><br><span style="font-size:10.5px;color:var(--muted)">${SECTOR_LABELS[t.tag] || t.tag} • Resp: ${escHtml(t.authorName || 'N/A')}</span></div>
-          <span style="color:var(--red);font-size:11px;white-space:nowrap;margin-left:10px">Venceu: ${data}</span>
-        </div>`;
-      });
-    }
+    document.getElementById('invite-link-display').style.display = 'block';
+    document.getElementById('generated-link').value = inviteLink;
 
-    if (soonTasks.length > 0) {
-      html += `<div style="color:var(--accent2);font-size:14px;font-weight:700;margin-bottom:8px;margin-top:16px;">🟡 ${soonTasks.length} Tarefa(s) a Vencer em breve:</div>`;
-      soonTasks.forEach(t => {
-        const data = t.due.split('-').reverse().join('/');
-        html += `<div style="background:rgba(201,168,76,0.08);padding:10px 14px;border-radius:8px;margin-bottom:8px;font-size:13px;border:1px solid rgba(201,168,76,0.3);display:flex;justify-content:space-between;align-items:center;">
-          <div><strong style="color:var(--text)">${escHtml(t.title)}</strong><br><span style="font-size:10.5px;color:var(--muted)">${SECTOR_LABELS[t.tag] || t.tag} • Resp: ${escHtml(t.authorName || 'N/A')}</span></div>
-          <span style="color:var(--accent2);font-size:11px;white-space:nowrap;margin-left:10px">Vence: ${data}</span>
-        </div>`;
-      });
-    }
-
-    bodyEl.innerHTML = html;
-    alertEl.style.display = 'flex';
-  } catch (err) {
-    console.error("Erro ao carregar resumo de tarefas:", err);
+    alert("Link de convite gerado com sucesso!");
+  } catch (error) {
+    console.error("Erro ao gerar convite:", error);
   }
-}
-
-function closeStartupAlert() {
-  const alertEl = document.getElementById('startup-alert');
-  if (alertEl) {
-    alertEl.style.opacity = '0';
-    setTimeout(() => { alertEl.style.display = 'none'; alertEl.style.opacity = '1'; }, 300);
-  }
-}
-
-function openLightbox(url) {
-  const lightbox = document.getElementById('image-lightbox');
-  const img = document.getElementById('lightbox-img');
-  img.src = url;
-  lightbox.style.display = 'flex';
-  setTimeout(() => { lightbox.style.opacity = '1'; img.style.transform = 'scale(1)'; }, 10);
-}
-
-function closeLightbox() {
-  const lightbox = document.getElementById('image-lightbox');
-  const img = document.getElementById('lightbox-img');
-  lightbox.style.opacity = '0';
-  img.style.transform = 'scale(0.95)';
-  setTimeout(() => { lightbox.style.display = 'none'; img.src = ''; }, 300);
 }

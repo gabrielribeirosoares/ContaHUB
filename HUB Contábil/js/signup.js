@@ -19,10 +19,7 @@ async function doSignup() {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const uid = userCredential.user.uid;
 
-    // 2. Gerar um Tenant ID único (Slug + Timestamp)
-    const tenantId = companyName.toLowerCase()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]/g, '') + '-' + Math.floor(Date.now() / 1000);
+   
 
     // 3. Criar o documento da Empresa (Tenants)
     await db.collection('tenants').doc(tenantId).set({

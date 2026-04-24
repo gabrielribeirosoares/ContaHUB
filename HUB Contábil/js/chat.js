@@ -6,13 +6,12 @@ let isPaginating = false;
 let previousScrollHeight = 0;
 let isLoadingMore = false;
 
-// Gera um ID de canal exclusivo para o escritório logado
+// O Canal Geral/Setores leva o ID da Empresa (Para isolar os escritórios)
 const getChannelDocId = (ch) => `${currentUser.tenantId}_${ch}`;
 
-// Gera um ID de mensagem direta exclusivo para o escritório logado
+// 🔥 CORREÇÃO 2: As DMs voltam ao original para resgatar o histórico
 const getDmDocId = (uid1, uid2) => {
-  const room = uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
-  return `${currentUser.tenantId}_${room}`;
+  return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 };
 
 // ════════════════════════════════════════════
