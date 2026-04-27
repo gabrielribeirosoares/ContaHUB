@@ -350,117 +350,112 @@
         <div class="users-admin-wrap">
           <div class="users-admin-header">
             <h2>👥 Gestão de Usuários</h2>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:12px;color:var(--muted)" id="users-count-label"></span>
-              <button class="btn-post" style="padding:7px 16px;font-size:13px" onclick="openCreateUser()">+ Novo
+            <div class="users-admin-tools">
+              <span id="users-count-label"></span>
+              <button class="btn-post users-admin-new-btn" onclick="openCreateUser()">+ Novo
                 Usuário</button>
             </div>
           </div>
           <div class="users-admin-body">
             <div class="users-list-col" id="users-admin-list">
-              <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">Carregando usuários...
+              <div class="users-empty-state">Carregando usuários...
               </div>
             </div>
-            <div class="users-form-col">
-              <div id="uform-create" style="display:none">
-                <h3
-                  style="font-size:14px;font-weight:600;color:var(--accent2);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-                  ➕ Novo Usuário</h3>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nome</label>
-                  <input type="text" id="new-user-name" class="agenda-input" style="width:100%" placeholder="Nome">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Sobrenome</label>
-                  <input type="text" id="new-user-surname" class="agenda-input" style="width:100%"
-                    placeholder="Sobrenome">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">E-mail</label>
-                  <input type="email" id="new-user-email" autocomplete="off" class="agenda-input" style="width:100%"
-                    placeholder="email@exemplo.com">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Senha</label>
-                  <input type="password" id="new-user-pass" autocomplete="new-password" class="agenda-input"
-                    style="width:100%" placeholder="Mínimo 6 caracteres">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cargo / Setor</label>
-                  <select id="new-user-role" class="agenda-input" style="width:100%">
-                    <option value="">Selecione...</option>
-                    <option value="fiscal">Dep. Fiscal</option>
-                    <option value="dp">Dep. Pessoal</option>
-                    <option value="contabil">Dep. Contábil</option>
-                    <option value="gestor">Gestor</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom:14px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cor do Avatar</label>
-                  <input type="color" id="new-user-color" value="#3a4060" class="agenda-input"
-                    style="width:100%;height:38px;padding:2px 6px">
-                </div>
-                <button class="btn-post" style="width:100%" onclick="createUser()">Criar Usuário</button>
-                <button onclick="cancelCreateUser()"
-                  style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;">Cancelar</button>
-                <div id="new-user-feedback" style="margin-top:8px;font-size:12px;display:none"></div>
-              </div>
-
-
-              <h3 id="uform-title">✏️ Editar Usuário</h3>
-              <div id="uform-wrap" style="display:none">
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nome completo</label>
-                  <input type="text" id="uform-name" class="agenda-input" style="width:100%"
-                    placeholder="Nome do usuário">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cargo / Setor</label>
-                  <select id="uform-role" class="agenda-input" style="width:100%">
-                    <option value="">Selecione...</option>
-                    <option value="fiscal">Dep. Fiscal</option>
-                    <option value="dp">Dep. Pessoal</option>
-                    <option value="contabil">Dep. Contábil</option>
-                    <option value="gestor">Gestor</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom:14px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cor do Avatar</label>
-                  <input type="color" id="uform-color" class="agenda-input"
-                    style="width:100%;height:38px;padding:2px 6px">
-                </div>
-                <button class="btn-post" style="width:100%" onclick="saveUserEdit()">💾 Salvar Alterações</button>
-                <button onclick="cancelUserEdit()"
-                  style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;">Cancelar</button>
-                <div id="uform-feedback" style="margin-top:8px;font-size:12px;color:var(--green);display:none">✅ Salvo
-                  com sucesso!</div>
-              </div>
-
-              <div id="uform-placeholder" style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0">
-                <div style="font-size:2rem;margin-bottom:8px">👆</div>
-                Selecione um usuário para editar<br>ou clique em <strong>+ Novo Usuário</strong>
-              </div>
-
-            </div>
-
           </div>
-          <div class="invite-section"
-            style="background: var(--surface); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
-            <h3 style="margin-top: 0; font-size: 16px;">Convidar Membro da Equipe</h3>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-              <input type="email" id="invite-email" placeholder="E-mail do funcionário" style="flex: 1;">
-              <select id="invite-role">
-                <option value="fiscal">Dep. Fiscal</option>
-                <option value="dp">Dep. Pessoal</option>
-                <option value="contabil">Dep. Contábil</option>
-                <option value="gestor">Gestor</option>
-              </select>
-              <button class="btn-primary" onclick="generateInviteLink()">Gerar Link</button>
+          <div class="invite-section users-invite users-invite-cta">
+            <h3>Convidar Membro da Equipe</h3>
+            <button class="users-invite-toggle" onclick="openInviteModal()">Abrir</button>
+          </div>
+        </div>
+        <div id="user-edit-modal" class="user-edit-modal" style="display:none" onclick="closeUserEditModal(event)">
+          <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+            <h3 id="uform-title">✏️ Editar Usuário</h3>
+            <div id="uform-wrap" style="display:none">
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Nome completo</label>
+                <input type="text" id="uform-name" class="agenda-input users-form-input" placeholder="Nome do usuário">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cargo / Setor</label>
+                <select id="uform-role" class="agenda-input users-form-input">
+                  <option value="">Selecione...</option>
+                  <option value="fiscal">Dep. Fiscal</option>
+                  <option value="dp">Dep. Pessoal</option>
+                  <option value="contabil">Dep. Contábil</option>
+                  <option value="gestor">Gestor</option>
+                </select>
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cor do Avatar</label>
+                <input type="color" id="uform-color" class="agenda-input users-form-input users-form-color">
+              </div>
+              <button class="btn-post users-form-btn" onclick="saveUserEdit()">💾 Salvar Alterações</button>
+              <button onclick="cancelUserEdit()" class="users-form-btn users-form-btn-secondary">Cancelar</button>
+              <div id="uform-feedback" class="users-form-feedback users-form-feedback-ok">✅ Salvo com sucesso!</div>
             </div>
-            <div id="invite-link-display" style="margin-top: 15px; display: none;">
-              <p style="font-size: 12px; color: var(--muted);">Compartilhe este link com o funcionário:</p>
-              <input type="text" id="generated-link" readonly
-                style="width: 100%; background: var(--bg); color: var(--accent2); font-weight: bold;">
+          </div>
+        </div>
+        <div id="user-create-modal" class="user-edit-modal" style="display:none" onclick="closeUserCreateModal(event)">
+          <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+            <h3 class="users-form-title">➕ Novo Usuário</h3>
+            <div id="uform-create" style="display:none">
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Nome</label>
+                <input type="text" id="new-user-name" class="agenda-input users-form-input" placeholder="Nome">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Sobrenome</label>
+                <input type="text" id="new-user-surname" class="agenda-input users-form-input" placeholder="Sobrenome">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">E-mail</label>
+                <input type="email" id="new-user-email" autocomplete="off" class="agenda-input users-form-input"
+                  placeholder="email@exemplo.com">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Senha</label>
+                <input type="password" id="new-user-pass" autocomplete="new-password" class="agenda-input users-form-input"
+                  placeholder="Mínimo 6 caracteres">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cargo / Setor</label>
+                <select id="new-user-role" class="agenda-input users-form-input">
+                  <option value="">Selecione...</option>
+                  <option value="fiscal">Dep. Fiscal</option>
+                  <option value="dp">Dep. Pessoal</option>
+                  <option value="contabil">Dep. Contábil</option>
+                  <option value="gestor">Gestor</option>
+                </select>
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cor do Avatar</label>
+                <input type="color" id="new-user-color" value="#3a4060" class="agenda-input users-form-input users-form-color">
+              </div>
+              <button class="btn-post users-form-btn" onclick="createUser()">Criar Usuário</button>
+              <button onclick="cancelCreateUser()" class="users-form-btn users-form-btn-secondary">Cancelar</button>
+              <div id="new-user-feedback" class="users-form-feedback"></div>
+            </div>
+          </div>
+        </div>
+        <div id="user-invite-modal" class="user-edit-modal" style="display:none" onclick="closeInviteModal(event)">
+          <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+            <h3>Convidar Membro da Equipe</h3>
+            <div id="users-invite-body" class="users-invite-body">
+              <div class="users-invite-row">
+                <input type="email" id="invite-email" placeholder="E-mail do funcionário">
+                <select id="invite-role">
+                  <option value="fiscal">Dep. Fiscal</option>
+                  <option value="dp">Dep. Pessoal</option>
+                  <option value="contabil">Dep. Contábil</option>
+                  <option value="gestor">Gestor</option>
+                </select>
+                <button class="btn-primary" onclick="generateInviteLink()">Gerar Link</button>
+              </div>
+              <div id="invite-link-display" class="users-invite-link">
+                <p>Compartilhe este link com o funcionário:</p>
+                <input type="text" id="generated-link" readonly>
+              </div>
+              <button onclick="closeInviteModal()" class="users-form-btn users-form-btn-secondary">Fechar</button>
             </div>
           </div>
         </div>

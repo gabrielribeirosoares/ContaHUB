@@ -14,12 +14,22 @@ const getDmDocId = (uid1, uid2) => {
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 };
 
+async function ensureDmRoomExists(roomId, targetUid) {
+  if (!currentUser || !roomId || !targetUid) return;
+  await db.collection('directMessages').doc(roomId).set({
+    tenantId: currentUser.tenantId || null,
+    participants: [currentUser.uid, targetUid],
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
 // ════════════════════════════════════════════
 //  NOTIFICAÇÕES / UNREAD
 // ════════════════════════════════════════════
 function initUnreadCounters() {
   ['geral', 'fiscal', 'dp', 'contabil'].forEach(ch => {
     const channelId = getChannelDocId(ch);
+    if (typeof unreadObservers[ch] === 'function') unreadObservers[ch]();
     unreadObservers[ch] = db.collection('channels').doc(channelId).collection('messages').onSnapshot(snap => {
       let count = 0;
       snap.forEach(doc => {
@@ -107,7 +117,7 @@ function switchChannel(el) {
   if (typeof closeSidebar === 'function') closeSidebar();
 }
 
-function openDM(targetUid, targetName, el) {
+async function openDM(targetUid, targetName, el) {
   chatLimit = 30;
   isPaginating = false;
   isLoadingMore = false;
@@ -128,6 +138,7 @@ function openDM(targetUid, targetName, el) {
 
   if (unsubChat) unsubChat();
   cancelReply();
+  await ensureDmRoomExists(roomId, targetUid);
   markAsRead('directMessages', roomId);
   subscribeChat('directMessages', roomId, currentChatTargetName);
 
@@ -199,6 +210,8 @@ function subscribeTyping(colName, docId) {
         el.classList.remove('visible');
       }
     }
+  }, err => {
+    if (err.code !== 'permission-denied') console.error('Erro no typing listener:', err);
   });
 }
 
@@ -323,6 +336,12 @@ function listenToMessages(collectionName, docId, displayName) {
       } else {
         container.scrollTop = container.scrollHeight;
       }
+    }, err => {
+      if (err.code === 'permission-denied') {
+        container.innerHTML = `<div class="chat-empty"><span style="font-size:2rem">🔒</span><span>Sem permissão para abrir esta conversa.</span></div>`;
+        return;
+      }
+      console.error('Erro ao carregar mensagens:', err);
     });
 }
 
@@ -341,6 +360,7 @@ async function sendMsg() {
   const colName = isDM ? 'directMessages' : 'channels';
   const docId = isDM ? getDmDocId(currentUser.uid, currentDM) : getChannelDocId(currentChannel);
   try {
+    if (isDM) await ensureDmRoomExists(docId, currentDM);
     if (pendingFile) {
       const fileRef = storage.ref(`${colName}/${docId}/${Date.now()}_${pendingFile.name}`);
       const snapshot = await fileRef.put(pendingFile);

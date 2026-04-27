@@ -12,8 +12,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-const storage = firebase.storage();
-const rtdb = firebase.database();
+const storage = typeof firebase.storage === 'function' ? firebase.storage() : null;
+const rtdb = typeof firebase.database === 'function' ? firebase.database() : null;
 
 // 🔴 PERSISTÊNCIA DESATIVADA — evita cache de mensagens deletadas
 // db.enablePersistence();

@@ -18,7 +18,8 @@ let unsubMural = null;
 let unsubTasks = null;
 let unsubAgenda = null;
 let unsubAgendaRP = null;
-let unsubUsers = null;
+let unsubUsersSidebar = null;
+let unsubUsersAdmin = null;
 let unreadObservers = {};
 let statusObservers = {}; // 🔴 NOVO: para limpar listeners de status
 let activeReply = null;
@@ -59,9 +60,20 @@ window.addEventListener('load', () => { updateDate(); setInterval(updateDate, 60
 function switchTab(id, btn) {
   $$('.tab-panel').forEach(p => p.classList.remove('active'));
   $$('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
+  const panel = document.getElementById('tab-' + id);
+  if (!panel) return;
+  panel.classList.add('active');
   if (btn) btn.classList.add('active');
   lastActiveTab = id;
+
+  if (id === 'usuarios') {
+    const usersBox = panel.querySelector('.users-admin-wrap');
+    if (usersBox) {
+      usersBox.classList.remove('users-box-enter');
+      void usersBox.offsetWidth; // reinicia animação
+      usersBox.classList.add('users-box-enter');
+    }
+  }
 }
 
 function toggleTheme() {
@@ -126,12 +138,12 @@ function initPresence() {
 //  CARREGAR USUÁRIOS (BARRA LATERAL)
 // ════════════════════════════════════════════
 function loadUsers() {
-  if (unsubUsers) unsubUsers();
+  if (unsubUsersSidebar) unsubUsersSidebar();
   
   Object.values(statusObservers).forEach(unsub => unsub());
   statusObservers = {};
 
-  unsubUsers = db.collection('users')
+  unsubUsersSidebar = db.collection('users')
     .where('tenantId', '==', currentUser.tenantId)
     .onSnapshot(snap => {
       const container = $('users-sidebar');
@@ -161,9 +173,16 @@ function loadUsers() {
           div.onclick = () => { openDM(uid, nameStr, div); closeSidebar(); };
           
           // 🔥 CORREÇÃO 1: Cria o ID da sala diretamente aqui, sem depender do chat.js (Restaura o Histórico)
-          const roomId = currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`;
+          const roomId = typeof getDmDocId === 'function'
+            ? getDmDocId(currentUser.uid, uid)
+            : (currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`);
+
+          if (typeof ensureDmRoomExists === 'function') {
+            ensureDmRoomExists(roomId, uid).catch(() => {});
+          }
 
           if (!unreadObservers[roomId]) {
+            let dmBootstrapped = false;
             unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages')
               .onSnapshot(s => {
                 let dmCount = 0;
@@ -173,8 +192,29 @@ function loadUsers() {
                 });
                 const b = div.querySelector('.unread-badge');
                 if (b) { b.textContent = dmCount; b.style.display = dmCount > 0 ? 'inline-block' : 'none'; }
+
+                if (dmBootstrapped && !s.metadata.fromCache) {
+                  const lastAdded = s.docChanges().filter(c => c.type === 'added').map(c => c.doc.data())
+                    .find(m => m.authorId !== currentUser.uid);
+                  if (lastAdded) {
+                    notifySound.play().catch(() => {});
+                    if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+                      const notification = new Notification(`ContaHub: Nova mensagem de ${nameStr}`, {
+                        body: lastAdded.text || '📎 Ficheiro anexado',
+                        icon: 'logo-contahub.png'
+                      });
+                      notification.onclick = function() { window.focus(); };
+                    }
+                  }
+                }
+                dmBootstrapped = true;
               }, err => {
-                if (err.code !== 'permission-denied') console.error('DM listener erro:', err);
+                if (err.code === 'permission-denied') {
+                  const b = div.querySelector('.unread-badge');
+                  if (b) b.style.display = 'none';
+                  return;
+                }
+                console.error('DM listener erro:', err);
               });
           }
         } else {
@@ -226,16 +266,43 @@ auth.onAuthStateChanged(async user => {
 
   try {
     const snap = await db.collection('users').doc(user.uid).get();
-    currentUser = snap.exists
-      ? { uid: user.uid, ...snap.data() }
-      : { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
+    if (snap.exists) {
+      currentUser = { uid: user.uid, ...snap.data() };
+    } else {
+      const defaultName = (user.displayName || user.email || 'Gestor').split('@')[0];
+      currentUser = {
+        uid: user.uid,
+        name: defaultName,
+        surname: '',
+        initials: (defaultName || 'G').substring(0, 2).toUpperCase(),
+        color: '#c9a84c',
+        role: 'gestor',
+        tenantId: user.uid
+      };
+
+      try {
+        await db.collection('users').doc(user.uid).set({
+          name: currentUser.name,
+          surname: '',
+          email: user.email || '',
+          role: 'gestor',
+          tenantId: user.uid,
+          color: currentUser.color,
+          initials: currentUser.initials,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (bootstrapErr) {
+        if (bootstrapErr.code !== 'permission-denied') throw bootstrapErr;
+        console.warn('Sem permissão para bootstrap do perfil. Usando perfil local de gestor.', bootstrapErr);
+      }
+    }
 
     if (!currentUser.tenantId) {
       console.warn("⚠️ Utilizador sem tenantId!");
-      currentUser.tenantId = "empresa_teste";
+      currentUser.tenantId = user.uid;
     }
   } catch (e) {
-    currentUser = { uid: user.uid, name: 'Usuário', surname: '', initials: 'US', color: '#3a4060', role: '' };
+    currentUser = { uid: user.uid, name: 'Gestor', surname: '', initials: 'GE', color: '#c9a84c', role: 'gestor', tenantId: user.uid };
   }
 
   // Atualiza a interface
@@ -246,6 +313,7 @@ auth.onAuthStateChanged(async user => {
   // Inicia os serviços principais
   initPresence();
   loadUsers(); // 🟢 ÚNICA CHAMADA
+  if (typeof initUnreadCounters === 'function') initUnreadCounters();
 
   if (typeof getChannelDocId === 'function' && typeof subscribeChat === 'function') {
     const roomDocId = getChannelDocId(currentChannel);
@@ -285,7 +353,8 @@ async function doLogout() {
   if (unsubTasks) unsubTasks();
   if (unsubAgenda) unsubAgenda();
   if (unsubAgendaRP) unsubAgendaRP();
-  if (unsubUsers) unsubUsers();
+  if (unsubUsersSidebar) unsubUsersSidebar();
+  if (unsubUsersAdmin) unsubUsersAdmin();
   if (unsubTyping) { unsubTyping(); unsubTyping = null; }
   
   Object.values(unreadObservers).forEach(u => u());
@@ -323,15 +392,22 @@ function showFeedback(el, msg, color) {
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
+function animateUserForm(formEl) {
+  if (!formEl) return;
+  formEl.classList.remove('users-form-enter');
+  void formEl.offsetWidth;
+  formEl.classList.add('users-form-enter');
+}
+
 function initUsersAdmin() {
   const isGestorRole = isGestor();
   const btn = document.getElementById('btn-tab-usuarios');
   if (btn) btn.style.display = isGestorRole ? '' : 'none';
   if (!isGestorRole) return;
   
-  if (unsubUsers) { unsubUsers(); unsubUsers = null; } // Usa o mesmo listener
+  if (unsubUsersAdmin) { unsubUsersAdmin(); unsubUsersAdmin = null; }
   
-  unsubUsers = db.collection('users')
+  unsubUsersAdmin = db.collection('users')
     .where('tenantId', '==', currentUser.tenantId).onSnapshot(snap => {
       const container = $('users-admin-list');
       const label = document.getElementById('users-count-label');
@@ -348,9 +424,9 @@ function initUsersAdmin() {
         const card = document.createElement('div'); 
         card.className = 'user-admin-card';
         card.innerHTML = `
-          <div class="user-av" style="background:${u.color || '#3a4060'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0">${u.initials || '?'}</div>
+          <div class="user-av users-admin-avatar" style="background:${u.color || '#3a4060'}">${u.initials || '?'}</div>
           <div class="uac-info">
-            <div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span style="font-size:10px;color:var(--muted)">(você)</span>' : ''}</div>
+            <div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span class="uac-self-tag">(você)</span>' : ''}</div>
             <div class="uac-role">${escHtml(roleLabel)}</div>
             <div class="uac-email">${escHtml(u.email || '')}</div>
           </div>
@@ -365,13 +441,20 @@ function initUsersAdmin() {
 
 function openCreateUser() {
   editingUserId = null;
+  const editModal = document.getElementById('user-edit-modal');
+  if (editModal) editModal.style.display = 'none';
   document.getElementById('uform-create').style.display = 'block'; document.getElementById('uform-wrap').style.display = 'none';
-  document.getElementById('uform-placeholder').style.display = 'none'; document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+  document.getElementById('user-create-modal').style.display = 'flex';
+  animateUserForm(document.getElementById('uform-create'));
   ['new-user-name', 'new-user-surname', 'new-user-email', 'new-user-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('new-user-role').value = ''; document.getElementById('new-user-color').value = '#3a4060'; document.getElementById('new-user-feedback').style.display = 'none';
 }
 
-function cancelCreateUser() { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }
+function cancelCreateUser() {
+  document.getElementById('uform-create').style.display = 'none';
+  const modal = document.getElementById('user-create-modal');
+  if (modal) modal.style.display = 'none';
+}
 
 function openUserEdit(uid) {
   editingUserId = uid;
@@ -380,7 +463,10 @@ function openUserEdit(uid) {
     const u = doc.data();
     document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-name').value = (u.name || '') + ' ' + (u.surname || '');
     document.getElementById('uform-role').value = u.role || ''; document.getElementById('uform-color').value = u.color || '#3a4060';
-    document.getElementById('uform-wrap').style.display = 'block'; document.getElementById('uform-placeholder').style.display = 'none';
+    document.getElementById('uform-wrap').style.display = 'block';
+    document.getElementById('user-edit-modal').style.display = 'flex';
+    cancelCreateUser();
+    animateUserForm(document.getElementById('uform-wrap'));
     document.getElementById('uform-title').textContent = '✏️ Editar: ' + escHtml(u.name || ''); document.getElementById('uform-feedback').style.display = 'none';
   });
 }
@@ -402,7 +488,19 @@ async function saveUserEdit() {
 
 function cancelUserEdit() {
   editingUserId = null; document.getElementById('uform-wrap').style.display = 'none'; document.getElementById('uform-create').style.display = 'none';
-  document.getElementById('uform-placeholder').style.display = 'block'; document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+  const modal = document.getElementById('user-edit-modal');
+  if (modal) modal.style.display = 'none';
+  document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+}
+
+function closeUserEditModal(event) {
+  if (event?.target?.id !== 'user-edit-modal') return;
+  cancelUserEdit();
+}
+
+function closeUserCreateModal(event) {
+  if (event?.target?.id !== 'user-create-modal') return;
+  cancelCreateUser();
 }
 
 async function deleteUser(uid) { if (confirm('Remover este usuário do sistema?')) { try { await db.collection('users').doc(uid).delete(); } catch (e) { alert('Erro: ' + e.message); } } }
@@ -433,7 +531,7 @@ async function createUser() {
     });
     await secondaryAuth.signOut(); await secondaryApp.delete();
     showFeedback(feedback, '✅ Usuário criado com sucesso!', 'var(--green)');
-    setTimeout(() => { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }, 2000);
+    setTimeout(() => { cancelCreateUser(); }, 2000);
   } catch (e) {
     const msgs = { 'auth/email-already-in-use': 'Este e-mail já está em uso.', 'auth/invalid-email': 'E-mail inválido.' };
     showFeedback(feedback, '❌ ' + (msgs[e.code] || e.message), 'var(--red)');
@@ -459,6 +557,7 @@ async function generateInviteLink() {
 
     const inviteLink = window.location.href.replace("escritorio-virtual.html", "aceitar-convite.html") + "?id=" + inviteRef.id;
 
+    openInviteModal();
     document.getElementById('invite-link-display').style.display = 'block';
     document.getElementById('generated-link').value = inviteLink;
 
@@ -466,4 +565,17 @@ async function generateInviteLink() {
   } catch (error) {
     console.error("Erro ao gerar convite:", error);
   }
+}
+
+function openInviteModal() {
+  const modal = document.getElementById('user-invite-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  animateUserForm(document.getElementById('users-invite-body'));
+}
+
+function closeInviteModal(event) {
+  if (event?.target && event.target.id !== 'user-invite-modal') return;
+  const modal = document.getElementById('user-invite-modal');
+  if (modal) modal.style.display = 'none';
 }
