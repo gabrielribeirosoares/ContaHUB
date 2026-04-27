@@ -133,141 +133,110 @@
       </div>
 
       <div class="tab-panel" id="tab-mural">
-        <div class="mural-area" id="mural-area">
-          <div class="chat-empty" id="mural-empty" style="margin-top:40px">
-            <span style="font-size:2rem">📌</span>
-            <span>Nenhum aviso ainda. Publique o primeiro!</span>
+        <div class="mural-window">
+          <div class="mural-header">
+            <div class="mural-header-title">
+              <h3>Mural de Avisos</h3>
+              <span>Comunicados internos da equipe</span>
+            </div>
+            <button class="btn-post mural-new-btn" onclick="openCreateNoticeModal()">+ Novo aviso</button>
           </div>
-        </div>
-        <div class="mural-add">
-          <input id="notice-title" autocomplete="off" placeholder="Título do aviso" style="flex:2;min-width:140px">
-          <input id="notice-body" autocomplete="off" placeholder="Descrição…" style="flex:3;min-width:160px">
-          <select id="notice-type">
-            <option value="geral">📌 Geral</option>
-            <option value="urgente">🔴 Urgente</option>
-            <option value="info">🔵 Info</option>
-            <option value="sucesso">✅ Concluído</option>
-          </select>
-          <select id="notice-sector">
-            <option value="todos">📢 Todos os Setores</option>
-            <option value="fiscal">Dep. Fiscal</option>
-            <option value="dp">Dep. Pessoal</option>
-            <option value="contabil">Dep. Contábil</option>
-          </select>
-          <button class="btn-post" onclick="addNotice()">Publicar</button>
+
+          <div class="mural-area" id="mural-area">
+            <div class="chat-empty" id="mural-empty" style="margin-top:40px">
+              <span style="font-size:2rem">📌</span>
+              <span>Nenhum aviso ainda. Publique o primeiro!</span>
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="tab-panel" id="tab-tarefas">
-        <div class="sector-tabs" id="task-sector-tabs"></div>
-        <div style="padding: 10px 16px 0; display: flex; gap: 8px;">
-          <button onclick="applyTaskFilter('todas', this)" class="btn-post filter-btn"
-            style="background: rgba(201, 168, 76, 0.15); color: var(--accent2); border: 1px solid var(--accent);">📋
-            Todas</button>
-          <button onclick="applyTaskFilter('minhas', this)" class="btn-post filter-btn"
-            style="background: var(--surface); color: var(--text); border: 1px solid var(--border);">👤 Minhas
-            Tarefas</button>
-          <button onclick="applyTaskFilter('atrasadas', this)" class="btn-post filter-btn"
-            style="background: var(--surface); color: var(--red); border: 1px solid var(--red);">⚠️ Atrasadas</button>
-        </div>
-        <div id="task-due-alerts-current" style="padding: 12px 16px 0; display: none;"></div>
-        <div class="tasks-area">
-          <div class="kanban">
-            <div>
-              <div class="kanban-head"><span>A Fazer</span><span class="col-count" id="count-todo">0</span></div>
-              <div id="col-todo"></div>
-            </div>
-            <div>
-              <div class="kanban-head"><span>Em Andamento</span><span class="col-count" id="count-prog">0</span></div>
-              <div id="col-prog"></div>
-            </div>
-            <div>
-              <div class="kanban-head"><span>Concluído</span><span class="col-count" id="count-done">0</span></div>
-              <div id="col-done"></div>
+        <div class="tasks-window">
+          <div class="sector-tabs" id="task-sector-tabs"></div>
+
+          <div style="padding: 10px 16px 0; display:flex; gap:8px;">
+            <button onclick="applyTaskFilter('todas', this)" class="btn-post filter-btn"
+              style="background: rgba(201, 168, 76, 0.15); color: var(--accent2); border: 1px solid var(--accent);">📋
+              Todas</button>
+            <button onclick="applyTaskFilter('minhas', this)" class="btn-post filter-btn"
+              style="background: var(--surface); color: var(--text); border: 1px solid var(--border);">👤 Minhas
+              Tarefas</button>
+            <button onclick="applyTaskFilter('atrasadas', this)" class="btn-post filter-btn"
+              style="background: var(--surface); color: var(--red); border: 1px solid var(--red);">⚠️ Atrasadas</button>
+          </div>
+
+          <div id="task-due-alerts-current" style="padding:12px 16px 0; display:none;"></div>
+
+          <div class="tasks-area">
+            <div class="kanban">
+              <div>
+                <div class="kanban-head"><span>A Fazer</span><span class="col-count" id="count-todo">0</span></div>
+                <div id="col-todo"></div>
+              </div>
+              <div>
+                <div class="kanban-head"><span>Em Andamento</span><span class="col-count" id="count-prog">0</span></div>
+                <div id="col-prog"></div>
+              </div>
+              <div>
+                <div class="kanban-head"><span>Concluído</span><span class="col-count" id="count-done">0</span></div>
+                <div id="col-done"></div>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="tasks-add">
-          <input id="task-title" placeholder="Nova tarefa…" autocomplete="off" style="flex:3;min-width:160px">
 
-          <select id="task-tag-sel">
-            <option value="fiscal">Dep. Fiscal</option>
-            <option value="dp">Dep. Pessoal</option>
-            <option value="contabil">Dep. Contábil</option>
-          </select>
-          <select id="task-client-sel" style="flex:1; min-width:120px;">
-            <option value="">Sem cliente</option>
-          </select>
-          <select id="task-col-sel">
-            <option value="todo">A Fazer</option>
-            <option value="prog">Em Andamento</option>
-          </select>
-          <input type="date" id="task-due" title="Vencimento" style="flex:1;min-width:120px">
-          <button class="btn-post" onclick="addTask()">+ Tarefa</button>
-          <input type="file" id="import-task-file" style="display:none" accept=".xlsx, .xls, .csv"
-            onchange="importarPlanilhaTarefas(event)">
-          <button class="btn-post" onclick="document.getElementById('import-task-file').click()"
-            style="background: var(--surface); color: var(--text); border: 1px solid var(--border);"
-            title="Importar Planilha">📥</button>
+          <div class="tasks-add">
+            <!-- seus campos e botões atuais -->
+          </div>
         </div>
       </div>
 
       <div class="tab-panel" id="tab-agenda">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 0;">
-          <div class="sector-tabs" id="agenda-sector-tabs" style="padding: 0;"></div>
-          <button class="btn-post" id="btn-gerar-tarefas" onclick="gerarTarefasMensais()"
-            style="background: var(--blue); display: none;">⚙️ Gerar Vencimentos do Mês</button>
-        </div>
-        <div class="mural-area" id="agenda-manager-list"></div>
-        <div class="agenda-add-wrap">
-          <input id="agenda-title" autocomplete="off" placeholder="Obrigação (ex: EFD Contribuições)"
-            class="agenda-input" style="width:100%">
-          <div class="agenda-row">
-            <input type="date" id="agenda-date" class="agenda-input" title="Data de Vencimento">
-            <select id="agenda-recurrence" class="agenda-input">
-              <option value="Única">Sem Repetição</option>
-              <option value="Mensal">Mensal</option>
-              <option value="Anual">Anual</option>
-            </select>
-            <select id="agenda-adjustment" class="agenda-input">
-              <option value="Manter">Dia Fixo (Manter)</option>
-              <option value="Antecipar">Antecipar se FDS/Feriado</option>
-              <option value="Postergar">Postergar se FDS/Feriado</option>
-            </select>
-            <select id="agenda-color" class="agenda-input">
-              <option value="var(--red)">🔴 Urgente</option>
-              <option value="var(--accent)">🟡 Atenção</option>
-              <option value="var(--blue)">🔵 Info</option>
-              <option value="var(--green)">🟢 Ok</option>
-            </select>
+        <div class="agenda-window">
+          <div class="agenda-header">
+            <div class="agenda-header-title">
+              <h3>Agenda de Obrigações</h3>
+              <span>Cadastre e acompanhe compromissos e vencimentos</span>
+            </div>
+
+            <div class="agenda-header-actions">
+              <button class="btn-post agenda-generate-btn" id="btn-gerar-tarefas" onclick="gerarTarefasMensais()"
+                style="display:none;">
+                ⚙️ Gerar Vencimentos do Mês
+              </button>
+
+              <button class="btn-post agenda-new-btn" onclick="openCreateAgendaModal()">
+                + Novo compromisso
+              </button>
+            </div>
           </div>
-          <select id="agenda-sector" class="agenda-input">
-            <option value="fiscal">Dep. Fiscal</option>
-            <option value="dp">Dep. Pessoal</option>
-            <option value="contabil">Dep. Contábil</option>
-          </select>
-          <button class="btn-post" onclick="addAgendaItem()" style="width:100%">Adicionar à Agenda</button>
+
+          <div class="sector-tabs" id="agenda-sector-tabs"></div>
+
+          <div class="agenda-area" id="agenda-area">
+            <div class="chat-empty" id="agenda-empty" style="margin-top:40px">
+              <span style="font-size:2rem">📅</span>
+              <span>Nenhuma obrigação cadastrada.</span>
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="tab-panel" id="tab-clientes">
-        <div class="users-admin-header" style="border-bottom: 1px solid var(--border); padding: 16px 20px;">
-          <h2>🏢 Carteira de Clientes</h2>
-        </div>
-        <div class="mural-area" id="client-list-area" style="flex:1; overflow-y:auto; padding:16px;"></div>
-        <div class="mural-add" style="border-top: 1px solid var(--border); padding: 16px;">
-          <input id="client-razao" placeholder="Razão Social" style="flex:2; min-width:140px;">
-          <input id="client-cnpj" placeholder="CNPJ" style="flex:1; min-width:120px;" maxlength="18"
-            oninput="let v=this.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2');v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');v=v.replace(/(\d{4})(\d)/,'$1-$2');this.value=v;">
-          <select id="client-regime" style="flex:1;">
-            <option value="Simples Nacional">Simples Nacional</option>
-            <option value="Lucro Presumido">Lucro Presumido</option>
-            <option value="Lucro Real">Lucro Real</option>
-            <option value="MEI">MEI</option>
-          </select>
-          <input id="client-codigo" placeholder="Cód. Cliente" style="flex:1; min-width:100px;">
-          <input id="client-filial" placeholder="Filial (ex: 0001)" style="flex:1; min-width:100px;">
-          <button class="btn-post" onclick="addClient()">+ Cliente</button>
+        <div class="clients-window">
+          <div class="clients-header">
+            <h3>Carteira de Clientes</h3>
+            <button class="btn-post clients-new-btn" onclick="openCreateClientModal()">
+              + Cliente
+            </button>
+          </div>
+
+          <div class="clients-area" id="client-list-area">
+            <div class="chat-empty" id="client-empty" style="margin-top:40px">
+              <span style="font-size:2rem">🏢</span>
+              <span>Nenhum cliente cadastrado.</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -350,117 +319,113 @@
         <div class="users-admin-wrap">
           <div class="users-admin-header">
             <h2>👥 Gestão de Usuários</h2>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:12px;color:var(--muted)" id="users-count-label"></span>
-              <button class="btn-post" style="padding:7px 16px;font-size:13px" onclick="openCreateUser()">+ Novo
+            <div class="users-admin-tools">
+              <span id="users-count-label"></span>
+              <button class="btn-post users-admin-new-btn" onclick="openCreateUser()">+ Novo
                 Usuário</button>
             </div>
           </div>
           <div class="users-admin-body">
             <div class="users-list-col" id="users-admin-list">
-              <div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">Carregando usuários...
+              <div class="users-empty-state">Carregando usuários...
               </div>
             </div>
-            <div class="users-form-col">
-              <div id="uform-create" style="display:none">
-                <h3
-                  style="font-size:14px;font-weight:600;color:var(--accent2);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-                  ➕ Novo Usuário</h3>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nome</label>
-                  <input type="text" id="new-user-name" class="agenda-input" style="width:100%" placeholder="Nome">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Sobrenome</label>
-                  <input type="text" id="new-user-surname" class="agenda-input" style="width:100%"
-                    placeholder="Sobrenome">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">E-mail</label>
-                  <input type="email" id="new-user-email" autocomplete="off" class="agenda-input" style="width:100%"
-                    placeholder="email@exemplo.com">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Senha</label>
-                  <input type="password" id="new-user-pass" autocomplete="new-password" class="agenda-input"
-                    style="width:100%" placeholder="Mínimo 6 caracteres">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cargo / Setor</label>
-                  <select id="new-user-role" class="agenda-input" style="width:100%">
-                    <option value="">Selecione...</option>
-                    <option value="fiscal">Dep. Fiscal</option>
-                    <option value="dp">Dep. Pessoal</option>
-                    <option value="contabil">Dep. Contábil</option>
-                    <option value="gestor">Gestor</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom:14px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cor do Avatar</label>
-                  <input type="color" id="new-user-color" value="#3a4060" class="agenda-input"
-                    style="width:100%;height:38px;padding:2px 6px">
-                </div>
-                <button class="btn-post" style="width:100%" onclick="createUser()">Criar Usuário</button>
-                <button onclick="cancelCreateUser()"
-                  style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;">Cancelar</button>
-                <div id="new-user-feedback" style="margin-top:8px;font-size:12px;display:none"></div>
-              </div>
-
-
-              <h3 id="uform-title">✏️ Editar Usuário</h3>
-              <div id="uform-wrap" style="display:none">
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nome completo</label>
-                  <input type="text" id="uform-name" class="agenda-input" style="width:100%"
-                    placeholder="Nome do usuário">
-                </div>
-                <div class="form-group" style="margin-bottom:10px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cargo / Setor</label>
-                  <select id="uform-role" class="agenda-input" style="width:100%">
-                    <option value="">Selecione...</option>
-                    <option value="fiscal">Dep. Fiscal</option>
-                    <option value="dp">Dep. Pessoal</option>
-                    <option value="contabil">Dep. Contábil</option>
-                    <option value="gestor">Gestor</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom:14px">
-                  <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Cor do Avatar</label>
-                  <input type="color" id="uform-color" class="agenda-input"
-                    style="width:100%;height:38px;padding:2px 6px">
-                </div>
-                <button class="btn-post" style="width:100%" onclick="saveUserEdit()">💾 Salvar Alterações</button>
-                <button onclick="cancelUserEdit()"
-                  style="width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:8px;padding:9px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;">Cancelar</button>
-                <div id="uform-feedback" style="margin-top:8px;font-size:12px;color:var(--green);display:none">✅ Salvo
-                  com sucesso!</div>
-              </div>
-
-              <div id="uform-placeholder" style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0">
-                <div style="font-size:2rem;margin-bottom:8px">👆</div>
-                Selecione um usuário para editar<br>ou clique em <strong>+ Novo Usuário</strong>
-              </div>
-
-            </div>
-
           </div>
-          <div class="invite-section"
-            style="background: var(--surface); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
-            <h3 style="margin-top: 0; font-size: 16px;">Convidar Membro da Equipe</h3>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-              <input type="email" id="invite-email" placeholder="E-mail do funcionário" style="flex: 1;">
-              <select id="invite-role">
-                <option value="fiscal">Dep. Fiscal</option>
-                <option value="dp">Dep. Pessoal</option>
-                <option value="contabil">Dep. Contábil</option>
-                <option value="gestor">Gestor</option>
-              </select>
-              <button class="btn-primary" onclick="generateInviteLink()">Gerar Link</button>
+          <div class="invite-section users-invite users-invite-cta">
+            <h3>Convidar Membro da Equipe</h3>
+            <button class="users-invite-toggle" onclick="openInviteModal()">Abrir</button>
+          </div>
+        </div>
+        <div id="user-edit-modal" class="user-edit-modal" style="display:none" onclick="closeUserEditModal(event)">
+          <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+            <h3 id="uform-title">✏️ Editar Usuário</h3>
+            <div id="uform-wrap" style="display:none">
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Nome completo</label>
+                <input type="text" id="uform-name" class="agenda-input users-form-input" placeholder="Nome do usuário">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cargo / Setor</label>
+                <select id="uform-role" class="agenda-input users-form-input">
+                  <option value="">Selecione...</option>
+                  <option value="fiscal">Dep. Fiscal</option>
+                  <option value="dp">Dep. Pessoal</option>
+                  <option value="contabil">Dep. Contábil</option>
+                  <option value="gestor">Gestor</option>
+                </select>
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cor do Avatar</label>
+                <input type="color" id="uform-color" class="agenda-input users-form-input users-form-color">
+              </div>
+              <button class="btn-post users-form-btn" onclick="saveUserEdit()">💾 Salvar Alterações</button>
+              <button onclick="cancelUserEdit()" class="users-form-btn users-form-btn-secondary">Cancelar</button>
+              <div id="uform-feedback" class="users-form-feedback users-form-feedback-ok">✅ Salvo com sucesso!</div>
             </div>
-            <div id="invite-link-display" style="margin-top: 15px; display: none;">
-              <p style="font-size: 12px; color: var(--muted);">Compartilhe este link com o funcionário:</p>
-              <input type="text" id="generated-link" readonly
-                style="width: 100%; background: var(--bg); color: var(--accent2); font-weight: bold;">
+          </div>
+        </div>
+        <div id="user-create-modal" class="user-edit-modal" style="display:none" onclick="closeUserCreateModal(event)">
+          <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+            <h3 class="users-form-title">➕ Novo Usuário</h3>
+            <div id="uform-create" style="display:none">
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Nome</label>
+                <input type="text" id="new-user-name" class="agenda-input users-form-input" placeholder="Nome">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Sobrenome</label>
+                <input type="text" id="new-user-surname" class="agenda-input users-form-input" placeholder="Sobrenome">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">E-mail</label>
+                <input type="email" id="new-user-email" autocomplete="off" class="agenda-input users-form-input"
+                  placeholder="email@exemplo.com">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Senha</label>
+                <input type="password" id="new-user-pass" autocomplete="new-password"
+                  class="agenda-input users-form-input" placeholder="Mínimo 6 caracteres">
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cargo / Setor</label>
+                <select id="new-user-role" class="agenda-input users-form-input">
+                  <option value="">Selecione...</option>
+                  <option value="fiscal">Dep. Fiscal</option>
+                  <option value="dp">Dep. Pessoal</option>
+                  <option value="contabil">Dep. Contábil</option>
+                  <option value="gestor">Gestor</option>
+                </select>
+              </div>
+              <div class="form-group users-form-group">
+                <label class="users-form-label">Cor do Avatar</label>
+                <input type="color" id="new-user-color" value="#3a4060"
+                  class="agenda-input users-form-input users-form-color">
+              </div>
+              <button class="btn-post users-form-btn" onclick="createUser()">Criar Usuário</button>
+              <button onclick="cancelCreateUser()" class="users-form-btn users-form-btn-secondary">Cancelar</button>
+              <div id="new-user-feedback" class="users-form-feedback"></div>
+            </div>
+          </div>
+        </div>
+        <div id="user-invite-modal" class="user-edit-modal" style="display:none" onclick="closeInviteModal(event)">
+          <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+            <h3>Convidar Membro da Equipe</h3>
+            <div id="users-invite-body" class="users-invite-body">
+              <div class="users-invite-row">
+                <input type="email" id="invite-email" placeholder="E-mail do funcionário">
+                <select id="invite-role">
+                  <option value="fiscal">Dep. Fiscal</option>
+                  <option value="dp">Dep. Pessoal</option>
+                  <option value="contabil">Dep. Contábil</option>
+                  <option value="gestor">Gestor</option>
+                </select>
+                <button class="btn-primary" onclick="generateInviteLink()">Gerar Link</button>
+              </div>
+              <div id="invite-link-display" class="users-invite-link">
+                <p>Compartilhe este link com o funcionário:</p>
+                <input type="text" id="generated-link" readonly>
+              </div>
+              <button onclick="closeInviteModal()" class="users-form-btn users-form-btn-secondary">Fechar</button>
             </div>
           </div>
         </div>
@@ -497,6 +462,48 @@
     </div>
 
   </div>
+
+  <div id="notice-create-modal" class="user-edit-modal" style="display:none" onclick="closeCreateNoticeModal(event)">
+    <div class="user-edit-modal-box notice-create-modal-box" onclick="event.stopPropagation()">
+      <h3 class="users-form-title">Novo Aviso</h3>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Título do aviso</label>
+        <input type="text" id="notice-title" class="agenda-input users-form-input" placeholder="Título do aviso">
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Descrição</label>
+        <input type="text" id="notice-body" class="agenda-input users-form-input" placeholder="Descrição...">
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Tipo</label>
+        <select id="notice-type" class="agenda-input users-form-input">
+          <option value="geral">📌 Geral</option>
+          <option value="urgente">🔴 Urgente</option>
+          <option value="info">🔵 Info</option>
+          <option value="sucesso">✅ Concluído</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Setor</label>
+        <select id="notice-sector" class="agenda-input users-form-input">
+          <option value="todos">📢 Todos os Setores</option>
+          <option value="fiscal">Dep. Fiscal</option>
+          <option value="dp">Dep. Pessoal</option>
+          <option value="contabil">Dep. Contábil</option>
+        </select>
+      </div>
+
+      <div id="notice-create-feedback" class="users-form-feedback"></div>
+
+      <button class="btn-post users-form-btn" onclick="submitCreateNotice()">Publicar</button>
+      <button onclick="closeCreateNoticeModal()" class="users-form-btn users-form-btn-secondary">Cancelar</button>
+    </div>
+  </div>
+
   <div id="task-edit-modal"
     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;">
     <div
@@ -568,6 +575,51 @@
         <button onclick="closeEditTask()"
           style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;font-family:inherit;font-size:13px;">Cancelar</button>
       </div>
+    </div>
+  </div>
+
+  <div id="task-create-modal" class="user-edit-modal" style="display:none" onclick="closeCreateTaskModal(event)">
+    <div class="user-edit-modal-box task-create-modal-box" onclick="event.stopPropagation()">
+      <h3 class="users-form-title">Nova Tarefa</h3>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Título</label>
+        <input type="text" id="new-task-title" class="agenda-input users-form-input" placeholder="Nova tarefa">
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Setor</label>
+        <select id="new-task-tag" class="agenda-input users-form-input">
+          <option value="fiscal">Dep. Fiscal</option>
+          <option value="dp">Dep. Pessoal</option>
+          <option value="contabil">Dep. Contábil</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Cliente</label>
+        <select id="new-task-client" class="agenda-input users-form-input">
+          <option value="">Sem cliente</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Status inicial</label>
+        <select id="new-task-col" class="agenda-input users-form-input">
+          <option value="todo">A Fazer</option>
+          <option value="prog">Em Andamento</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Vencimento</label>
+        <input type="date" id="new-task-due" class="agenda-input users-form-input">
+      </div>
+
+      <div id="new-task-feedback" class="users-form-feedback"></div>
+
+      <button class="btn-post users-form-btn" onclick="submitCreateTask()">Criar Tarefa</button>
+      <button onclick="closeCreateTaskModal()" class="users-form-btn users-form-btn-secondary">Cancelar</button>
     </div>
   </div>
 
@@ -658,6 +710,109 @@
     </div>
   </div>
 
+  <div id="agenda-create-modal" class="user-edit-modal" style="display:none" onclick="closeCreateAgendaModal(event)">
+    <div class="user-edit-modal-box agenda-create-modal-box" onclick="event.stopPropagation()">
+      <h3 class="users-form-title">Novo Compromisso</h3>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Título do Evento/Obrigação</label>
+        <input type="text" id="agenda-title" class="agenda-input users-form-input"
+          placeholder="Obrigação (ex: EFD Contribuições)">
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Data</label>
+        <input type="date" id="agenda-date" class="agenda-input users-form-input">
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Repetição</label>
+        <select id="agenda-repeat" class="agenda-input users-form-input">
+          <option value="none">Sem Repetição</option>
+          <option value="monthly">Mensal</option>
+          <option value="yearly">Anual</option>
+        </select>
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Regra de vencimento</label>
+        <select id="agenda-shift" class="agenda-input users-form-input">
+          <option value="fixed">Dia Fixo (Manter)</option>
+          <option value="prev">Antecipar se FDS/Feriado</option>
+          <option value="next">Postergar se FDS/Feriado</option>
+        </select>
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Prioridade</label>
+        <select id="agenda-priority" class="agenda-input users-form-input">
+          <option value="urgente">🔴 Urgente</option>
+          <option value="atencao">🟡 Atenção</option>
+          <option value="info">🔵 Info</option>
+          <option value="ok">🟢 Ok</option>
+        </select>
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Setor / Categoria</label>
+        <select id="agenda-sector" class="agenda-input users-form-input">
+          <option value="fiscal">Dep. Fiscal</option>
+          <option value="dp">Dep. Pessoal</option>
+          <option value="contabil">Dep. Contábil</option>
+          <option value="geral">Geral (Todos)</option>
+        </select>
+      </div>
+
+      <div id="agenda-create-feedback" class="users-form-feedback"></div>
+
+      <button class="btn-post users-form-btn" onclick="submitCreateAgenda()">Adicionar à Agenda</button>
+      <button class="users-form-btn users-form-btn-secondary" onclick="closeCreateAgendaModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="client-create-modal" class="user-edit-modal" style="display:none" onclick="closeCreateClientModal(event)">
+    <div class="user-edit-modal-box" onclick="event.stopPropagation()">
+      <h3 class="users-form-title">Novo Cliente</h3>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Razão Social</label>
+        <input type="text" id="new-client-razao" class="agenda-input users-form-input" placeholder="Razão Social">
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">CNPJ</label>
+        <input type="text" id="new-client-cnpj" class="agenda-input users-form-input" maxlength="18"
+          placeholder="00.000.000/0000-00"
+          oninput="let v=this.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2');v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');v=v.replace(/(\d{4})(\d)/,'$1-$2');this.value=v">
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Regime</label>
+        <select id="new-client-regime" class="agenda-input users-form-input">
+          <option value="Simples Nacional">Simples Nacional</option>
+          <option value="Lucro Presumido">Lucro Presumido</option>
+          <option value="Lucro Real">Lucro Real</option>
+          <option value="MEI">MEI</option>
+        </select>
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Cód. Cliente</label>
+        <input type="text" id="new-client-codigo" class="agenda-input users-form-input" placeholder="Código interno">
+      </div>
+
+      <div class="form-group users-form-group">
+        <label class="users-form-label">Filial</label>
+        <input type="text" id="new-client-filial" class="agenda-input users-form-input" placeholder="Ex: 0001">
+      </div>
+
+      <div id="new-client-feedback" class="users-form-feedback"></div>
+
+      <button class="btn-post users-form-btn" onclick="submitCreateClient()">Criar Cliente</button>
+      <button class="users-form-btn users-form-btn-secondary" onclick="closeCreateClientModal()">Cancelar</button>
+    </div>
+  </div>
+
   <div id="startup-alert"
     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:99999; align-items:center; justify-content:center; pointer-events:all;">
     <div
@@ -684,15 +839,15 @@
   <audio id="som-passos" src="sounds/step.mp3" preload="auto"></audio>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  
+
   <script src="js/firebase-config.js"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/app.js?v=3"></script>
   <script src="js/chat.js"></script>
-  <script src="js/kanban-mural.js?v=3"></script>
-  <script src="js/agenda-clientes.js?v=2"></script>
-  <script src="js/mapa-virtual.js?v=10"></script>
+  <script src="js/kanban-mural.js?v=4"></script>
+  <script src="js/agenda-clientes.js?v=3"></script>
+  <script src="js/mapa-virtual.js?v=11"></script>
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
- 
+
 
 
 </body>

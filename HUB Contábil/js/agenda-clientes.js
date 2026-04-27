@@ -2,39 +2,143 @@
 //  AGENDA DE OBRIGAÇÕES
 // ════════════════════════════════════════════
 function subscribeAgenda(sector) {
-  const managerContainer = document.getElementById('agenda-manager-list');
+  const managerContainer =
+    document.getElementById('agenda-area') ||
+    document.getElementById('agenda-manager-list');
+
+  const emptyEl = document.getElementById('agenda-empty');
   const isManager = isGestor();
+
+  if (unsubAgenda) {
+    unsubAgenda();
+    unsubAgenda = null;
+  }
+
+  if (!managerContainer) {
+    console.error('Container da agenda não encontrado');
+    return;
+  }
+
   unsubAgenda = db.collection('agenda')
-    .where('tenantId', '==', currentUser.tenantId) // ADICIONADO
-    .where('sector', '==', sector).onSnapshot(snap => {
+    .where('tenantId', '==', currentUser.tenantId)
+    .where('sector', '==', sector)
+    .onSnapshot(snap => {
       managerContainer.innerHTML = '';
+
       if (snap.empty) {
-        managerContainer.innerHTML = '<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📅</span><span>Nenhuma obrigação cadastrada.</span></div>';
+        managerContainer.innerHTML = `
+          <div class="chat-empty" style="margin-top:40px">
+            <span style="font-size:2rem">📅</span>
+            <span>Nenhuma obrigação cadastrada.</span>
+          </div>
+        `;
+        if (emptyEl) emptyEl.style.display = 'none';
         return;
       }
+
+      if (emptyEl) emptyEl.style.display = 'none';
+
       snap.forEach(doc => {
         const item = doc.data();
         const canEdit = item.authorId === currentUser?.uid || isManager;
         const isDone = item.done === true;
+
         const manDiv = document.createElement('div');
         manDiv.className = 'notice-card' + (isDone ? ' agenda-done-card' : '');
         manDiv.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;';
+
         manDiv.innerHTML = `
-        <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
-          <div class="event-dot" style="background:${isDone ? 'var(--green)' : (item.color || 'var(--accent)')};width:12px;height:12px;flex-shrink:0;margin:0;"></div>
-          <div style="min-width:0;">
-            <div class="notice-title ${isDone ? 'agenda-done-title' : ''}" style="margin-bottom:2px">${escHtml(item.title)}</div>
-            <div class="notice-body" style="font-size:11px">${escHtml(item.sub)}${isDone ? ' <span class="agenda-done-badge">✅ Concluído</span>' : ''}</div>
+          <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
+            <div class="event-dot" style="background:${isDone ? 'var(--green)' : (item.color || 'var(--accent)')};width:12px;height:12px;flex-shrink:0;margin:0;"></div>
+            <div style="min-width:0;">
+              <div class="notice-title ${isDone ? 'agenda-done-title' : ''}" style="margin-bottom:2px">
+                ${escHtml(item.title || '')}
+              </div>
+              <div class="notice-body" style="font-size:11px">
+                ${escHtml(item.sub || '')}${isDone ? ' <span class="agenda-done-badge">✅ Concluído</span>' : ''}
+              </div>
+            </div>
           </div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          ${!isDone && canEdit ? `<button class="btn-agenda-action btn-agenda-done" title="Marcar como concluído" onclick="completeAgendaItem('${doc.id}')">✅</button>` : ''}
-          ${canEdit && !isDone ? `<button class="btn-agenda-action" title="Editar" onclick="openAgendaEdit('${doc.id}', '${escHtml(item.title).replace(/'/g, "\\'")}', '${item.rawDate}', '${item.sector || 'geral'}')">✏️</button>` : ''}
-          ${canEdit ? `<button class="btn-agenda-action btn-agenda-del" title="Excluir" onclick="deleteAgendaItem('${doc.id}')">🗑️</button>` : ''}
-        </div>`;
+
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            ${!isDone && canEdit ? `<button class="btn-agenda-action btn-agenda-done" title="Marcar como concluído" onclick="completeAgendaItem('${doc.id}')">✅</button>` : ''}
+            ${canEdit && !isDone ? `<button class="btn-agenda-action" title="Editar" onclick="openAgendaEdit('${doc.id}', '${escHtml(item.title || '').replace(/'/g, "\\'")}', '${item.rawDate || ''}', '${item.sector || 'geral'}')">✏️</button>` : ''}
+            ${canEdit ? `<button class="btn-agenda-action btn-agenda-del" title="Excluir" onclick="deleteAgendaItem('${doc.id}')">🗑️</button>` : ''}
+          </div>
+        `;
+
         managerContainer.appendChild(manDiv);
       });
-    }, err => { console.warn('subscribeAgenda error:', err.message); });
+    }, err => {
+      console.warn('subscribeAgenda error:', err.message);
+    });
+}
+
+async function addAgendaItem(data) {
+  if (!currentUser) return;
+
+  const {
+    title,
+    date,
+    repeat,
+    shift,
+    priority,
+    sector
+  } = data || {};
+
+  if (!title || !date) {
+    throw new Error('Preencha o título e a data.');
+  }
+
+  const parts = date.split('-');
+  if (parts.length !== 3) {
+    throw new Error('Data inválida.');
+  }
+
+  const [yyyy, mm, dd] = parts;
+  let subText = `${dd}/${mm}/${yyyy}`;
+
+  const recurrenceLabel =
+    repeat === 'monthly' ? 'Mensal' :
+    repeat === 'yearly' ? 'Anual' :
+    'Única';
+
+  const adjustmentLabel =
+    shift === 'prev' ? 'Antecipar se FDS/Feriado' :
+    shift === 'next' ? 'Postergar se FDS/Feriado' :
+    'Manter';
+
+  if (recurrenceLabel !== 'Única') {
+    subText += ` · ${recurrenceLabel}`;
+  }
+
+  if (adjustmentLabel !== 'Manter') {
+    subText += ` · ${adjustmentLabel}`;
+  }
+
+  const color =
+    priority === 'urgente' ? 'var(--red)' :
+    priority === 'atencao' ? 'var(--accent2)' :
+    priority === 'info' ? 'var(--blue)' :
+    'var(--green)';
+
+  await db.collection('agenda').add({
+    title,
+    sub: subText,
+    rawDate: date,
+    date,
+    repeat: repeat || 'none',
+    recurrence: recurrenceLabel,
+    shift: shift || 'fixed',
+    adjustment: adjustmentLabel,
+    priority: priority || 'urgente',
+    color,
+    sector: sector || 'fiscal',
+    done: false,
+    tenantId: currentUser.tenantId,
+    authorId: currentUser.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
 }
 
 function subscribeAgendaRightPanel() {
@@ -65,30 +169,66 @@ function subscribeAgendaRightPanel() {
   }, err => { console.warn('subscribeAgendaRP error:', err.message); });
 }
 
-async function addAgendaItem() {
+async function addAgendaItem(data) {
   if (!currentUser) return;
-  const title = document.getElementById('agenda-title').value.trim();
-  const rawDate = document.getElementById('agenda-date').value;
-  const recurrence = document.getElementById('agenda-recurrence').value;
-  const adjustment = document.getElementById('agenda-adjustment').value;
-  const color = document.getElementById('agenda-color').value;
-  if (!title || !rawDate) { alert('Preencha o título e a data.'); return; }
-  const [yyyy, mm, dd] = rawDate.split('-');
+
+  const {
+    title,
+    date,
+    repeat,
+    shift,
+    priority,
+    sector
+  } = data || {};
+
+  if (!title || !date) {
+    throw new Error('Preencha o título e a data.');
+  }
+
+  const [yyyy, mm, dd] = date.split('-');
   let subText = `${dd}/${mm}/${yyyy}`;
-  if (recurrence !== 'Única') subText += ` · ${recurrence}`;
-  if (adjustment !== 'Manter') subText += ` · ${adjustment}`;
-  const btn = document.querySelector('.agenda-add-wrap .btn-post'); btn.textContent = 'Adicionando...'; btn.disabled = true;
-  try {
-    const agSector = document.getElementById('agenda-sector')?.value || currentAgendaSector || 'fiscal';
-    await db.collection('agenda').add({
-      title, sub: subText, rawDate, recurrence, adjustment, color, sector: agSector,
-      tenantId: currentUser.tenantId, // ADICIONADO
-      authorId: currentUser.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    document.getElementById('agenda-title').value = ''; document.getElementById('agenda-date').value = '';
-    document.getElementById('agenda-recurrence').value = 'Única'; document.getElementById('agenda-adjustment').value = 'Manter';
-  } catch (error) { alert('Erro: ' + error.message); }
-  finally { btn.textContent = 'Adicionar à Agenda'; btn.disabled = false; }
+
+  if (repeat && repeat !== 'none') {
+    const repeatLabel = repeat === 'monthly' ? 'Mensal' : repeat === 'yearly' ? 'Anual' : repeat;
+    subText += ` · ${repeatLabel}`;
+  }
+
+  if (shift && shift !== 'fixed') {
+    const shiftLabel =
+      shift === 'prev' ? 'Antecipar se FDS/Feriado' :
+      shift === 'next' ? 'Postergar se FDS/Feriado' :
+      shift;
+    subText += ` · ${shiftLabel}`;
+  }
+
+  const color =
+    priority === 'urgente' ? 'var(--red)' :
+    priority === 'atencao' ? 'var(--accent2)' :
+    priority === 'info' ? 'var(--blue)' :
+    'var(--green)';
+
+  await db.collection('agenda').add({
+    title,
+    sub: subText,
+    rawDate: date,
+    date,
+    repeat: repeat || 'none',
+    recurrence:
+      repeat === 'monthly' ? 'Mensal' :
+      repeat === 'yearly' ? 'Anual' :
+      'Única',
+    shift: shift || 'fixed',
+    adjustment:
+      shift === 'prev' ? 'Antecipar se FDS/Feriado' :
+      shift === 'next' ? 'Postergar se FDS/Feriado' :
+      'Manter',
+    priority: priority || 'urgente',
+    color,
+    sector: sector || currentAgendaSector || 'fiscal',
+    tenantId: currentUser.tenantId,
+    authorId: currentUser.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
 }
 
 async function completeAgendaItem(id) {

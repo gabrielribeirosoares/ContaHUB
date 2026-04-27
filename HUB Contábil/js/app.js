@@ -22,6 +22,7 @@ let unsubUsersSidebar = null;
 let unsubUsersAdmin = null;
 let unreadObservers = {};
 let statusObservers = {}; // 🔴 NOVO: para limpar listeners de status
+let dmBootstrapped = {};
 let activeReply = null;
 let pendingFile = null;
 const notifySound = new Audio("./sounds/step.mp3");
@@ -30,6 +31,9 @@ let typingTimeout = null;
 let unsubTyping = null;
 let _lastSendTs = 0;
 let lastActiveTab = 'chat';
+let lastActiveTabBtn = null;
+let profilePreviousTab = 'chat';
+let profilePreviousTabBtn = null;
 
 // ════════════════════════════════════════════
 //  UI & SIDEBAR
@@ -45,6 +49,33 @@ function closeSidebar() {
 function toggleRightPanel() {
   $('right-panel').classList.toggle('open');
 }
+
+function openProfile() {
+  if (lastActiveTab === 'perfil') {
+    switchTab(profilePreviousTab || 'chat', profilePreviousTabBtn || null);
+    return;
+  }
+
+  profilePreviousTab = lastActiveTab || 'chat';
+  profilePreviousTabBtn = lastActiveTabBtn || document.querySelector(`.tab-btn.active`);
+
+  switchTab('perfil');
+
+  if (!currentUser) return;
+
+  const nameEl = document.getElementById('prof-name');
+  const surnameEl = document.getElementById('prof-surname');
+  const roleEl = document.getElementById('prof-role');
+  const colorEl = document.getElementById('prof-color');
+  const feedbackEl = document.getElementById('prof-feedback');
+
+  if (nameEl) nameEl.value = currentUser.name || '';
+  if (surnameEl) surnameEl.value = currentUser.surname || '';
+  if (roleEl) roleEl.value = currentUser.role || '';
+  if (colorEl) colorEl.value = currentUser.color || '#3a4060';
+  if (feedbackEl) feedbackEl.style.display = 'none';
+}
+
 function updateDate() {
   const d = new Date();
   const dateEl = document.getElementById('live-date');
@@ -57,12 +88,65 @@ function updateDate() {
 updateDate();
 window.addEventListener('load', () => { updateDate(); setInterval(updateDate, 60000); });
 
-function switchTab(id, btn) {
+function switchTab(id, btn = null) {
   $$('.tab-panel').forEach(p => p.classList.remove('active'));
   $$('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
-  if (btn) btn.classList.add('active');
+
+  const panel = document.getElementById('tab-' + id);
+  if (!panel) return;
+
+  panel.classList.add('active');
+
+  const resolvedBtn = btn || document.querySelector(`.tab-btn[onclick*="switchTab('${id}'"]`);
+  if (resolvedBtn) resolvedBtn.classList.add('active');
+
   lastActiveTab = id;
+
+  if (id === 'usuarios') {
+    const usersBox = panel.querySelector('.users-admin-wrap');
+    if (usersBox) {
+      usersBox.classList.remove('users-box-enter');
+      void usersBox.offsetWidth;
+      usersBox.classList.add('users-box-enter');
+    }
+  }
+
+  if (id === 'mural') {
+    const muralBox = panel.querySelector('.mural-window');
+    if (muralBox) {
+      muralBox.classList.remove('users-box-enter');
+      void muralBox.offsetWidth;
+      muralBox.classList.add('users-box-enter');
+    }
+  }
+
+  if (id === 'tarefas') {
+    const tasksBox = panel.querySelector('.tasks-window');
+    if (tasksBox) {
+      tasksBox.classList.remove('users-box-enter');
+      void tasksBox.offsetWidth;
+      tasksBox.classList.add('users-box-enter');
+    }
+  }
+
+  if (id === 'agenda') {
+    const agendaBox = panel.querySelector('.agenda-window');
+    if (agendaBox) {
+      agendaBox.classList.remove('users-box-enter');
+      void agendaBox.offsetWidth;
+      agendaBox.classList.add('users-box-enter');
+    }
+  }
+
+  if (id === 'clientes') {
+    const clientsBox = panel.querySelector('.clients-window');
+    if (clientsBox) {
+      clientsBox.classList.remove('users-box-enter');
+      void clientsBox.offsetWidth;
+      clientsBox.classList.add('users-box-enter');
+    }
+  }
+
 }
 
 function toggleTheme() {
@@ -166,9 +250,13 @@ function loadUsers() {
             ? getDmDocId(currentUser.uid, uid)
             : (currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`);
 
-          if (typeof ensureDmRoomExists === 'function') {
-            ensureDmRoomExists(roomId, uid).catch(() => { });
-          }
+          div.onclick = async () => {
+            if (typeof ensureDmRoomExists === 'function') {
+              await ensureDmRoomExists(roomId, uid).catch(() => { });
+            }
+            openDM(uid, nameStr, div);
+            closeSidebar();
+          };
 
           if (!unreadObservers[roomId]) {
             unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages')
@@ -180,22 +268,28 @@ function loadUsers() {
                 });
                 const b = div.querySelector('.unread-badge');
                 if (b) { b.textContent = dmCount; b.style.display = dmCount > 0 ? 'inline-block' : 'none'; }
-              
-                if (dmBootstrapped && !s.metadata.fromCache) {
-                  const lastAdded = s.docChanges().filter(c => c.type === 'added').map(c => c.doc.data())
+
+                const isFirstSnapshot = !dmBootstrapped[roomId];
+
+                if (!isFirstSnapshot && !s.metadata.fromCache) {
+                  const newIncoming = s.docChanges()
+                    .filter(c => c.type === 'added')
+                    .map(c => c.doc.data())
                     .find(m => m.authorId !== currentUser.uid);
-                  if (lastAdded) {
-                    notifySound.play().catch(() => {});
-                    if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+
+                  if (newIncoming) {
+                    notifySound.play().catch(() => { });
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                       const notification = new Notification(`ContaHub: Nova mensagem de ${nameStr}`, {
-                        body: lastAdded.text || '📎 Ficheiro anexado',
+                        body: newIncoming.text || '📎 Ficheiro anexado',
                         icon: 'logo-contahub.png'
                       });
-                      notification.onclick = function() { window.focus(); };
+                      notification.onclick = function () { window.focus(); };
                     }
                   }
                 }
-                dmBootstrapped = true;
+
+                dmBootstrapped[roomId] = true;
               }, err => {
                 if (err.code === 'permission-denied') {
                   const b = div.querySelector('.unread-badge');
@@ -380,6 +474,13 @@ function showFeedback(el, msg, color) {
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
+function animateUserForm(formEl) {
+  if (!formEl) return;
+  formEl.classList.remove('users-form-enter');
+  void formEl.offsetWidth;
+  formEl.classList.add('users-form-enter');
+}
+
 function initUsersAdmin() {
   const isGestorRole = isGestor();
   const btn = document.getElementById('btn-tab-usuarios');
@@ -405,9 +506,9 @@ function initUsersAdmin() {
         const card = document.createElement('div');
         card.className = 'user-admin-card';
         card.innerHTML = `
-          <div class="user-av" style="background:${u.color || '#3a4060'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0">${u.initials || '?'}</div>
+          <div class="user-av users-admin-avatar" style="background:${u.color || '#3a4060'}">${u.initials || '?'}</div>
           <div class="uac-info">
-            <div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span style="font-size:10px;color:var(--muted)">(você)</span>' : ''}</div>
+            <div class="uac-name">${escHtml((u.name || '') + ' ' + (u.surname || ''))} ${isSelf ? '<span class="uac-self-tag">(você)</span>' : ''}</div>
             <div class="uac-role">${escHtml(roleLabel)}</div>
             <div class="uac-email">${escHtml(u.email || '')}</div>
           </div>
@@ -422,13 +523,20 @@ function initUsersAdmin() {
 
 function openCreateUser() {
   editingUserId = null;
+  const editModal = document.getElementById('user-edit-modal');
+  if (editModal) editModal.style.display = 'none';
   document.getElementById('uform-create').style.display = 'block'; document.getElementById('uform-wrap').style.display = 'none';
-  document.getElementById('uform-placeholder').style.display = 'none'; document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+  document.getElementById('user-create-modal').style.display = 'flex';
+  animateUserForm(document.getElementById('uform-create'));
   ['new-user-name', 'new-user-surname', 'new-user-email', 'new-user-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('new-user-role').value = ''; document.getElementById('new-user-color').value = '#3a4060'; document.getElementById('new-user-feedback').style.display = 'none';
 }
 
-function cancelCreateUser() { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }
+function cancelCreateUser() {
+  document.getElementById('uform-create').style.display = 'none';
+  const modal = document.getElementById('user-create-modal');
+  if (modal) modal.style.display = 'none';
+}
 
 function openUserEdit(uid) {
   editingUserId = uid;
@@ -437,7 +545,10 @@ function openUserEdit(uid) {
     const u = doc.data();
     document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-name').value = (u.name || '') + ' ' + (u.surname || '');
     document.getElementById('uform-role').value = u.role || ''; document.getElementById('uform-color').value = u.color || '#3a4060';
-    document.getElementById('uform-wrap').style.display = 'block'; document.getElementById('uform-placeholder').style.display = 'none';
+    document.getElementById('uform-wrap').style.display = 'block';
+    document.getElementById('user-edit-modal').style.display = 'flex';
+    cancelCreateUser();
+    animateUserForm(document.getElementById('uform-wrap'));
     document.getElementById('uform-title').textContent = '✏️ Editar: ' + escHtml(u.name || ''); document.getElementById('uform-feedback').style.display = 'none';
   });
 }
@@ -459,25 +570,51 @@ async function saveUserEdit() {
 
 function cancelUserEdit() {
   editingUserId = null; document.getElementById('uform-wrap').style.display = 'none'; document.getElementById('uform-create').style.display = 'none';
-  document.getElementById('uform-placeholder').style.display = 'block'; document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+  const modal = document.getElementById('user-edit-modal');
+  if (modal) modal.style.display = 'none';
+  document.getElementById('uform-title').textContent = '✏️ Editar Usuário';
+}
+
+function closeUserEditModal(event) {
+  if (event?.target?.id !== 'user-edit-modal') return;
+  cancelUserEdit();
+}
+
+function closeUserCreateModal(event) {
+  if (event?.target?.id !== 'user-create-modal') return;
+  cancelCreateUser();
 }
 
 async function deleteUser(uid) { if (confirm('Remover este usuário do sistema?')) { try { await db.collection('users').doc(uid).delete(); } catch (e) { alert('Erro: ' + e.message); } } }
 
 async function createUser() {
-  const name = document.getElementById('new-user-name').value.trim(); const surname = document.getElementById('new-user-surname').value.trim();
-  const email = document.getElementById('new-user-email').value.trim(); const pass = document.getElementById('new-user-pass').value;
-  const role = document.getElementById('new-user-role').value; const color = document.getElementById('new-user-color').value;
+  const name = document.getElementById('new-user-name').value.trim();
+  const surname = document.getElementById('new-user-surname').value.trim();
+  const email = document.getElementById('new-user-email').value.trim();
+  const pass = document.getElementById('new-user-pass').value;
+  const role = document.getElementById('new-user-role').value;
+  const color = document.getElementById('new-user-color').value;
   const feedback = document.getElementById('new-user-feedback');
-  if (!name || !email || !pass || !role) { showFeedback(feedback, '⚠️ Preencha todos os campos obrigatórios.', 'var(--red)'); return; }
-  if (pass.length < 6) { showFeedback(feedback, '⚠️ A senha deve ter ao menos 6 caracteres.', 'var(--red)'); return; }
-  const btn = document.querySelector('#uform-create .btn-post'); btn.textContent = 'Criando...'; btn.disabled = true;
+
+  if (!name || !email || !pass || !role) {
+    showFeedback(feedback, 'Preencha todos os campos obrigatórios.', 'var(--red)');
+    return;
+  }
+
+  const btn = document.querySelector('#uform-create .btn-post');
+  btn.textContent = 'Criando...';
+  btn.disabled = true;
+
+  let secondaryApp = null;
+
   try {
-    const secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary_' + Date.now());
+    secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary-' + Date.now());
     const secondaryAuth = secondaryApp.auth();
+
     const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
-    const uid = cred.user.uid; const initials = ((name[0] || '') + (surname[0] || '')).toUpperCase();
-    // Localize esta parte dentro da função createUser()
+    const uid = cred.user.uid;
+    const initials = ((name[0] || '') + (surname[0] || '')).toUpperCase();
+
     await db.collection('users').doc(uid).set({
       name,
       surname,
@@ -485,16 +622,35 @@ async function createUser() {
       role,
       color,
       initials,
-      tenantId: currentUser.tenantId, // 🔴 ADICIONE ESTA LINHA
+      tenantId: currentUser.tenantId,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    await secondaryAuth.signOut(); await secondaryApp.delete();
-    showFeedback(feedback, '✅ Usuário criado com sucesso!', 'var(--green)');
-    setTimeout(() => { document.getElementById('uform-create').style.display = 'none'; document.getElementById('uform-placeholder').style.display = 'block'; }, 2000);
+
+    await secondaryAuth.signOut();
+    await secondaryApp.delete();
+
+    showFeedback(feedback, 'Usuário criado com sucesso!', 'var(--green)');
+    setTimeout(cancelCreateUser, 2000);
   } catch (e) {
-    const msgs = { 'auth/email-already-in-use': 'Este e-mail já está em uso.', 'auth/invalid-email': 'E-mail inválido.' };
-    showFeedback(feedback, '❌ ' + (msgs[e.code] || e.message), 'var(--red)');
-  } finally { btn.textContent = 'Criar Usuário'; btn.disabled = false; }
+    console.error('Erro ao criar usuário:', e);
+
+    const msgs = {
+      'auth/email-already-in-use': 'Este e-mail já está em uso.',
+      'auth/invalid-email': 'E-mail inválido.',
+      'auth/operation-not-allowed': 'Cadastro por e-mail/senha não está habilitado no Firebase Auth.',
+      'auth/weak-password': 'A senha é muito fraca.',
+      'permission-denied': 'Sem permissão para gravar o perfil do usuário no Firestore.'
+    };
+
+    showFeedback(feedback, msgs[e.code] || e.message, 'var(--red)');
+
+    if (secondaryApp) {
+      try { await secondaryApp.delete(); } catch (_) { }
+    }
+  } finally {
+    btn.textContent = 'Criar Usuário';
+    btn.disabled = false;
+  }
 }
 
 async function generateInviteLink() {
@@ -516,6 +672,7 @@ async function generateInviteLink() {
 
     const inviteLink = window.location.href.replace("escritorio-virtual.html", "aceitar-convite.html") + "?id=" + inviteRef.id;
 
+    openInviteModal();
     document.getElementById('invite-link-display').style.display = 'block';
     document.getElementById('generated-link').value = inviteLink;
 
@@ -523,4 +680,374 @@ async function generateInviteLink() {
   } catch (error) {
     console.error("Erro ao gerar convite:", error);
   }
+}
+
+function openInviteModal() {
+  const modal = document.getElementById('user-invite-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  animateUserForm(document.getElementById('users-invite-body'));
+}
+
+function closeInviteModal(event) {
+  if (event?.target && event.target.id !== 'user-invite-modal') return;
+  const modal = document.getElementById('user-invite-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function openCreateNoticeModal() {
+  const modal = document.getElementById('notice-create-modal');
+  const feedback = document.getElementById('notice-create-feedback');
+
+  if (document.getElementById('notice-title')) document.getElementById('notice-title').value = '';
+  if (document.getElementById('notice-body')) document.getElementById('notice-body').value = '';
+  if (document.getElementById('notice-type')) document.getElementById('notice-type').value = 'geral';
+  if (document.getElementById('notice-sector')) document.getElementById('notice-sector').value = 'todos';
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.textContent = '';
+  }
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCreateNoticeModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('notice-create-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitCreateNotice() {
+  const title = (document.getElementById('notice-title')?.value || '').trim();
+  const body = (document.getElementById('notice-body')?.value || '').trim();
+  const type = document.getElementById('notice-type')?.value || 'geral';
+  const sector = document.getElementById('notice-sector')?.value || 'todos';
+  const feedback = document.getElementById('notice-create-feedback');
+
+  if (!title || !body) {
+    if (feedback) {
+      feedback.textContent = 'Preencha o título e a descrição do aviso.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+    return;
+  }
+
+  try {
+    if (typeof addNotice === 'function') {
+      await addNotice();
+    }
+
+    if (feedback) {
+      feedback.textContent = 'Aviso publicado com sucesso!';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--green)';
+    }
+
+    setTimeout(() => {
+      closeCreateNoticeModal();
+    }, 700);
+  } catch (err) {
+    console.error('Erro ao publicar aviso:', err);
+    if (feedback) {
+      feedback.textContent = err.message || 'Erro ao publicar aviso.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+  }
+}
+
+function openCreateTaskModal() {
+  const modal = document.getElementById('task-create-modal');
+  const feedback = document.getElementById('new-task-feedback');
+
+  if (document.getElementById('new-task-title')) document.getElementById('new-task-title').value = '';
+  if (document.getElementById('new-task-tag')) document.getElementById('new-task-tag').value = 'fiscal';
+  if (document.getElementById('new-task-client')) document.getElementById('new-task-client').value = '';
+  if (document.getElementById('new-task-col')) document.getElementById('new-task-col').value = 'todo';
+  if (document.getElementById('new-task-due')) document.getElementById('new-task-due').value = '';
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.textContent = '';
+  }
+
+  populateCreateTaskClients();
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCreateTaskModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('task-create-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function populateCreateTaskClients() {
+  const select = document.getElementById('new-task-client');
+  if (!select || !currentUser?.tenantId) return;
+
+  select.innerHTML = '<option value="">Sem cliente</option>';
+
+  try {
+    const snap = await db.collection('clients')
+      .where('tenantId', '==', currentUser.tenantId)
+      .get();
+
+    snap.forEach(doc => {
+      const c = doc.data();
+      const opt = document.createElement('option');
+      opt.value = doc.id;
+      opt.textContent = c.razao || c.nome || 'Cliente';
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Erro ao carregar clientes para nova tarefa:', err);
+  }
+}
+
+async function submitCreateTask() {
+  const title = (document.getElementById('new-task-title')?.value || '').trim();
+  const tag = document.getElementById('new-task-tag')?.value || 'fiscal';
+  const clientId = document.getElementById('new-task-client')?.value || '';
+  const column = document.getElementById('new-task-col')?.value || 'todo';
+  const due = document.getElementById('new-task-due')?.value || '';
+  const feedback = document.getElementById('new-task-feedback');
+
+  if (!title) {
+    if (feedback) {
+      feedback.textContent = 'Informe o título da tarefa.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+    return;
+  }
+
+  try {
+    await db.collection('tasks').add({
+      title,
+      tag,
+      clientId,
+      column,
+      due: due || null,
+      tenantId: currentUser.tenantId,
+      authorId: currentUser.uid,
+      authorName: `${currentUser.name || ''} ${currentUser.surname || ''}`.trim(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    if (feedback) {
+      feedback.textContent = 'Tarefa criada com sucesso!';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--green)';
+    }
+
+    setTimeout(() => {
+      closeCreateTaskModal();
+    }, 700);
+  } catch (err) {
+    console.error('Erro ao criar tarefa:', err);
+    if (feedback) {
+      feedback.textContent = err.message || 'Erro ao criar tarefa.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+  }
+}
+
+function openCreateAgendaModal() {
+  const modal = document.getElementById('agenda-create-modal');
+  const feedback = document.getElementById('agenda-create-feedback');
+
+  if (document.getElementById('agenda-title')) document.getElementById('agenda-title').value = '';
+  if (document.getElementById('agenda-date')) document.getElementById('agenda-date').value = '';
+  if (document.getElementById('agenda-repeat')) document.getElementById('agenda-repeat').value = 'none';
+  if (document.getElementById('agenda-shift')) document.getElementById('agenda-shift').value = 'fixed';
+  if (document.getElementById('agenda-priority')) document.getElementById('agenda-priority').value = 'urgente';
+  if (document.getElementById('agenda-sector')) document.getElementById('agenda-sector').value = 'fiscal';
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.textContent = '';
+  }
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCreateAgendaModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('agenda-create-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitCreateAgenda() {
+  const titleEl = document.getElementById('agenda-title');
+  const dateEl = document.getElementById('agenda-date');
+  const repeatEl = document.getElementById('agenda-repeat');
+  const shiftEl = document.getElementById('agenda-shift');
+  const priorityEl = document.getElementById('agenda-priority');
+  const sectorEl = document.getElementById('agenda-sector');
+  const feedback = document.getElementById('agenda-create-feedback');
+
+  if (!titleEl || !dateEl || !repeatEl || !shiftEl || !priorityEl || !sectorEl) {
+    console.error('Campos do modal da agenda não encontrados');
+    return;
+  }
+
+  const title = titleEl.value.trim();
+  const date = dateEl.value;
+
+  if (!title || !date) {
+    if (feedback) {
+      feedback.textContent = 'Preencha o título e a data.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+    return;
+  }
+
+  try {
+    await addAgendaItem({
+      title,
+      date,
+      repeat: repeatEl.value,
+      shift: shiftEl.value,
+      priority: priorityEl.value,
+      sector: sectorEl.value
+    });
+
+    if (feedback) {
+      feedback.textContent = 'Compromisso adicionado com sucesso!';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--green)';
+    }
+
+    setTimeout(() => {
+      closeCreateAgendaModal();
+    }, 700);
+  } catch (err) {
+    console.error('Erro ao criar compromisso:', err);
+    if (feedback) {
+      feedback.textContent = err.message || 'Erro ao criar compromisso.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+  }
+}
+
+function closeCreateAgendaModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('agenda-create-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitCreateAgenda() {
+  const title = (document.getElementById('agenda-title')?.value || '').trim();
+  const date = document.getElementById('agenda-date')?.value || '';
+  const repeat = document.getElementById('agenda-repeat')?.value || 'none';
+  const shift = document.getElementById('agenda-shift')?.value || 'fixed';
+  const priority = document.getElementById('agenda-priority')?.value || 'urgente';
+  const sector = document.getElementById('agenda-sector')?.value || 'fiscal';
+  const feedback = document.getElementById('agenda-create-feedback');
+
+  if (!title || !date) {
+    if (feedback) {
+      feedback.textContent = 'Preencha o título e a data.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+    return;
+  }
+
+  try {
+    if (typeof addAgendaItem === 'function') {
+      await addAgendaItem({
+        title,
+        date,
+        repeat,
+        shift,
+        priority,
+        sector
+      });
+    } else {
+      await db.collection('agenda').add({
+        title,
+        date,
+        repeat,
+        shift,
+        priority,
+        sector,
+        tenantId: currentUser.tenantId,
+        authorId: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    if (feedback) {
+      feedback.textContent = 'Compromisso adicionado com sucesso!';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--green)';
+    }
+
+    setTimeout(() => {
+      closeCreateAgendaModal();
+    }, 700);
+  } catch (err) {
+    console.error('Erro ao criar compromisso:', err);
+    if (feedback) {
+      feedback.textContent = err.message || 'Erro ao adicionar compromisso.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+  }
+}
+
+function openCreateClientModal() {
+  const modal = document.getElementById('client-create-modal');
+  const feedback = document.getElementById('new-client-feedback');
+
+  ['new-client-razao', 'new-client-cnpj', 'new-client-codigo', 'new-client-filial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  const regime = document.getElementById('new-client-regime');
+  if (regime) regime.value = 'Simples Nacional';
+
+  if (feedback) {
+    feedback.style.display = 'none';
+    feedback.textContent = '';
+  }
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCreateClientModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('client-create-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function submitCreateClient() {
+  const razaoSrc = document.getElementById('new-client-razao');
+  const cnpjSrc = document.getElementById('new-client-cnpj');
+  const regimeSrc = document.getElementById('new-client-regime');
+  const codigoSrc = document.getElementById('new-client-codigo');
+  const filialSrc = document.getElementById('new-client-filial');
+
+  const razaoDst = document.getElementById('client-razao');
+  const cnpjDst = document.getElementById('client-cnpj');
+  const regimeDst = document.getElementById('client-regime');
+  const codigoDst = document.getElementById('client-codigo');
+  const filialDst = document.getElementById('client-filial');
+
+  if (razaoDst) razaoDst.value = razaoSrc?.value || '';
+  if (cnpjDst) cnpjDst.value = cnpjSrc?.value || '';
+  if (regimeDst) regimeDst.value = regimeSrc?.value || 'Simples Nacional';
+  if (codigoDst) codigoDst.value = codigoSrc?.value || '';
+  if (filialDst) filialDst.value = filialSrc?.value || '';
+
+  addClient();
+  closeCreateClientModal();
 }
