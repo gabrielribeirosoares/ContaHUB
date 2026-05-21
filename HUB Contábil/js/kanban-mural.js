@@ -98,27 +98,27 @@ function subscribeMural() {
   const area = $('mural-area');
   // ADICIONADO: Filtro tenantId
   unsubMural = db.collection('notices')
-    .where('tenantId', '==', currentUser.tenantId) 
+    .where('tenantId', '==', currentUser.tenantId)
     .orderBy('createdAt', 'desc')
     .onSnapshot(snap => {
-       // ... (o resto do código dentro do onSnapshot mantém-se igual)
-       area.innerHTML = '';
-       if (snap.empty) {
-         area.innerHTML = `<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📌</span><span>Nenhum aviso ainda.</span></div>`;
-         $('stat-notices').textContent = 0; return;
-       }
-       $('stat-notices').textContent = snap.size;
-       const userSectors = getUserSectors(currentUser?.role || '');
-       const isManagerMural = userSectors.length === 4;
-       snap.forEach(doc => {
-         const n = doc.data();
-         if (n.sector && n.sector !== 'todos' && !isManagerMural && !userSectors.includes(n.sector)) return;
-         const ts = n.createdAt?.toDate?.() || new Date();
-         const timeStr = ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ', ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-         const isOwn = n.authorId === currentUser?.uid;
-         const card = document.createElement('div');
-         card.className = 'notice-card ' + (n.type || 'geral');
-         card.innerHTML = `
+      // ... (o resto do código dentro do onSnapshot mantém-se igual)
+      area.innerHTML = '';
+      if (snap.empty) {
+        area.innerHTML = `<div class="chat-empty" style="margin-top:40px"><span style="font-size:2rem">📌</span><span>Nenhum aviso ainda.</span></div>`;
+        $('stat-notices').textContent = 0; return;
+      }
+      $('stat-notices').textContent = snap.size;
+      const userSectors = getUserSectors(currentUser?.role || '');
+      const isManagerMural = userSectors.length === 4;
+      snap.forEach(doc => {
+        const n = doc.data();
+        if (n.sector && n.sector !== 'todos' && !isManagerMural && !userSectors.includes(n.sector)) return;
+        const ts = n.createdAt?.toDate?.() || new Date();
+        const timeStr = ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ', ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const isOwn = n.authorId === currentUser?.uid;
+        const card = document.createElement('div');
+        card.className = 'notice-card ' + (n.type || 'geral');
+        card.innerHTML = `
            <span class="notice-tag">${noticeTags[n.type] || '📌 Geral'}</span>
            <div class="notice-title">${escHtml(n.title)}</div>
            <div class="notice-body">${escHtml(n.body || '')}</div>
@@ -126,8 +126,8 @@ function subscribeMural() {
              <span>${escHtml(n.authorName || '')}</span>
              <span style="display:flex;align-items:center;gap:6px">${timeStr} ${isOwn ? `<button class="btn-del" onclick="deleteNotice('${doc.id}')">✕</button>` : ''}</span>
            </div>`;
-         area.appendChild(card);
-       });
+        area.appendChild(card);
+      });
     });
 }
 
@@ -138,7 +138,7 @@ async function addNotice() {
   const type = document.getElementById('notice-type').value;
   const sector = document.getElementById('notice-sector')?.value || 'todos';
   if (!title) return;
-  
+
   await db.collection('notices').add({
     title, body, type, sector,
     tenantId: currentUser.tenantId, // ADICIONADO: Associação à empresa
@@ -228,55 +228,135 @@ function formatDueDate(due) {
   return formatted;
 }
 
+function updateDueAlertsBanner(docs) {
+  const alertContainer = document.getElementById('task-due-alerts-current');
+  if (!alertContainer) return;
+
+  let lateCount = 0;
+  let soonCount = 0;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  docs.forEach(doc => {
+    const t = doc.data();
+    // Validamos apenas tarefas que NÃO estão concluídas e possuem data de vencimento
+    if (t.column !== 'done' && t.due) {
+      const d = new Date(t.due + 'T00:00:00');
+      const diff = Math.ceil((d - today) / 86400000);
+
+      if (diff < 0) {
+        lateCount++; // Tarefa atrasada
+      } else if (diff >= 0 && diff <= 3) {
+        soonCount++; // Vence nos próximos 3 dias
+      }
+    }
+  });
+
+  // Limpa o conteúdo anterior
+  alertContainer.innerHTML = '';
+
+  // Se não houver alertas, oculta o elemento
+  if (lateCount === 0 && soonCount === 0) {
+    alertContainer.style.display = 'none';
+    return;
+  }
+
+  // Ativa a exibição do bloco de alertas
+  alertContainer.style.display = 'flex';
+  alertContainer.style.flexDirection = 'column';
+  alertContainer.style.gap = '8px';
+
+  // Injeta o aviso de tarefas atrasadas (Alerta Vermelho)
+  if (lateCount > 0) {
+    alertContainer.innerHTML += `
+      <div class="task-due-alert late">
+        <span>⚠️ Atenção: Tens <strong>${lateCount}</strong> tarefa(s) atrasada(s) neste setor!</span>
+      </div>
+    `;
+  }
+
+  // Injeta o aviso de tarefas a vencer (Alerta Amarelo/Dourado)
+  if (soonCount > 0) {
+    alertContainer.innerHTML += `
+      <div class="task-due-alert soon">
+        <span>📅 Fique atento: <strong>${soonCount}</strong> tarefa(s) vencem nos próximos 3 dias!</span>
+      </div>
+    `;
+  }
+}
+
 function subscribeTasks(sector) {
-  // ADICIONADO: Filtro tenantId
+  // Filtro tenantId
   const query = db.collection('tasks')
     .where('tenantId', '==', currentUser.tenantId)
     .where('tag', '==', sector);
-  
+
   unsubTasks = query.onSnapshot(snap => {
-      // ... (mantém todo o interior do onSnapshot igualzinho como estava)
-      // O código de renderizar os cards mantém-se inalterado.
-      ['todo', 'prog', 'done'].forEach(col => { const el = document.getElementById('col-' + col); if (el) el.innerHTML = ''; });
-      let openCount = 0;
-      const docs = [];
-      snap.forEach(doc => docs.push(doc));
-      docs.sort((a, b) => {
-        const ta = a.data().createdAt?.toMillis?.() || 0;
-        const tb = b.data().createdAt?.toMillis?.() || 0;
-        return tb - ta;
-      });
-  
-      docs.forEach(doc => {
-        const t = doc.data();
-        if (currentTaskFilter === 'minhas' && t.authorId !== currentUser?.uid) return;
-        if (currentTaskFilter === 'atrasadas') {
-          if (!t.due || t.column === 'done') return;
-          const d = new Date(t.due + 'T00:00:00');
-          const today = new Date(); today.setHours(0, 0, 0, 0);
-          if (Math.ceil((d - today) / 86400000) >= 0) return;
+    ['todo', 'prog', 'done'].forEach(col => { const el = document.getElementById('col-' + col); if (el) el.innerHTML = ''; });
+    let openCount = 0;
+    const docs = [];
+    snap.forEach(doc => docs.push(doc));
+    updateDueAlertsBanner(docs);
+    docs.sort((a, b) => {
+      const ta = a.data().createdAt?.toMillis?.() || 0;
+      const tb = b.data().createdAt?.toMillis?.() || 0;
+      return tb - ta;
+    });
+
+    docs.forEach(doc => {
+      const t = doc.data();
+      if (currentTaskFilter === 'minhas' && t.authorId !== currentUser?.uid) return;
+      if (currentTaskFilter === 'atrasadas') {
+        if (!t.due || t.column === 'done') return;
+        const d = new Date(t.due + 'T00:00:00');
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (Math.ceil((d - today) / 86400000) >= 0) return;
+      }
+      const col = t.column || 'todo';
+      if (col !== 'done') openCount++;
+
+      const isOwn = t.authorId === currentUser?.uid;
+      const isManager = isGestor();
+      const card = document.createElement('div');
+      card.className = 'task-card'; if (col === 'done') card.style.opacity = '.65';
+
+      const checkCount = t.checklist ? t.checklist.length : 0;
+      const doneCount = t.checklist ? t.checklist.filter(c => c.done).length : 0;
+      const checkHtml = checkCount > 0 ? `<div style="font-size:11px; color:var(--muted); margin-top:6px; display:flex; align-items:center; gap:4px;"><span style="color:${doneCount === checkCount ? 'var(--green)' : 'var(--accent2)'}">☑ ${doneCount}/${checkCount}</span> concluídos</div>` : '';
+      const checklistStr = encodeURIComponent(JSON.stringify(t.checklist || []));
+
+      // HTML do Cliente
+      const clientHtml = t.clientName ? `<div style="font-size:11.5px; font-weight:500; color:var(--blue); margin-top:4px; margin-bottom:2px;"><i class="fas fa-building" style="margin-right:4px;"></i>${escHtml(t.clientName)}</div>` : '';
+
+      // 👇 LÓGICA INTELIGENTE DAS INICIAIS (Nome + Sobrenome) 👇
+      let calculatedInitials = '??';
+      if (t.authorName && t.authorName.trim() !== '') {
+        // Quebra o nome completo pelos espaços
+        const nameParts = t.authorName.trim().split(/\s+/);
+        if (nameParts.length > 1) {
+          // Pega a 1ª letra do primeiro nome e a 1ª letra do último nome
+          calculatedInitials = (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+        } else {
+          // Se a pessoa só tiver um nome, pega as duas primeiras letras dele
+          calculatedInitials = nameParts[0].substring(0, 2).toUpperCase();
         }
-        const col = t.column || 'todo';
-        if (col !== 'done') openCount++;
-  
-        const isOwn = t.authorId === currentUser?.uid;
-        const isManager = isGestor();
-        const card = document.createElement('div');
-        card.className = 'task-card'; if (col === 'done') card.style.opacity = '.65';
-  
-        const checkCount = t.checklist ? t.checklist.length : 0;
-        const doneCount = t.checklist ? t.checklist.filter(c => c.done).length : 0;
-        const checkHtml = checkCount > 0 ? `<div style="font-size:11px; color:var(--muted); margin-top:6px; display:flex; align-items:center; gap:4px;"><span style="color:${doneCount === checkCount ? 'var(--green)' : 'var(--accent2)'}">☑ ${doneCount}/${checkCount}</span> concluídos</div>` : '';
-        const checklistStr = encodeURIComponent(JSON.stringify(t.checklist || []));
-        const clientHtml = t.clientName ? `<div style="font-size:11.5px; font-weight:500; color:var(--blue); margin-top:4px; margin-bottom:2px;"><i class="fas fa-building" style="margin-right:4px;"></i>${escHtml(t.clientName)}</div>` : '';
-  
-        card.innerHTML = `
+      } else if (t.authorInitials && t.authorInitials !== 'US') {
+        calculatedInitials = t.authorInitials;
+      }
+
+      // 👇 HTML do Card completo usando o calculatedInitials
+      card.innerHTML = `
           <div class="task-card-title" style="${col === 'done' ? 'text-decoration:line-through;padding-right:80px' : 'padding-right:80px'}">${escHtml(t.title)}</div>
           ${clientHtml}
           ${checkHtml}
           <div class="task-card-meta" style="margin-top:8px;">
             <span class="task-tag ${t.tag || 'fiscal'}">${SECTOR_LABELS[t.tag] || t.tag || 'fiscal'}</span>
-            <div class="task-assignee" style="background:${t.authorColor || '#3a4060'}">${t.authorInitials || '??'}</div>
+            
+            <div class="task-assignee" title="${t.authorName || 'Sem autor'}" style="background:${t.authorColor || '#3a4060'}">
+              ${calculatedInitials}
+            </div>
+            
             <span class="${col === 'done' ? 'task-due' : getDueBadgeClass(t.due)}" title="${col === 'done' ? 'Concluído' : getDueTooltip(t.due)}">${col === 'done' ? ('✅ ' + (t.completedAt?.toDate ? t.completedAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Concluído')) : formatDueDate(t.due)}</span>
           </div>
           <div class="task-actions" style="display:none;position:absolute;top:6px;right:6px;gap:4px;flex-direction:row;align-items:center;">
@@ -284,14 +364,14 @@ function subscribeTasks(sector) {
             ${(isOwn || isManager) ? `<button title="Editar" onclick="openEditTask('${doc.id}','${escHtml(t.title).replace(/'/g, "\\'")}','${t.tag || 'fiscal'}','${t.due || ''}','${t.column || 'todo'}', '${checklistStr}', '${encodeURIComponent(JSON.stringify(t.attachments || []))}', '${t.clientId || ''}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);cursor:pointer;font-size:11px;padding:2px 6px;line-height:1.4;">✏️</button>` : ''}
             ${(isOwn || isManager) ? `<button title="Excluir" onclick="deleteTask('${doc.id}')" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--red);cursor:pointer;font-size:12px;padding:2px 6px;line-height:1.4;">✕</button>` : ''}
           </div>`;
-  
-        card.addEventListener('mouseenter', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'flex'; });
-        card.addEventListener('mouseleave', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'none'; });
-        const colEl = document.getElementById('col-' + col); if (colEl) colEl.appendChild(card);
-      });
-  
-      const statEl = $('stat-tasks'); if (statEl) statEl.textContent = openCount;
-      ['todo', 'prog', 'done'].forEach(col => { const c = document.getElementById('count-' + col); if (c) c.textContent = document.getElementById('col-' + col)?.children.length || 0; });
+
+      card.addEventListener('mouseenter', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'flex'; });
+      card.addEventListener('mouseleave', () => { const a = card.querySelector('.task-actions'); if (a) a.style.display = 'none'; });
+      const colEl = document.getElementById('col-' + col); if (colEl) colEl.appendChild(card);
+    });
+
+    const statEl = $('stat-tasks'); if (statEl) statEl.textContent = openCount;
+    ['todo', 'prog', 'done'].forEach(col => { const c = document.getElementById('count-' + col); if (c) c.textContent = document.getElementById('col-' + col)?.children.length || 0; });
   });
 }
 
@@ -346,10 +426,8 @@ function openEditTask(id, title, tag, due, col, checklistStr, attachmentsStr, cl
   document.getElementById('edit-task-col').value = col;
   document.getElementById('edit-task-due').value = due;
 
-  const editClientSel = document.getElementById('edit-task-client');
-  if (editClientSel) {
-    editClientSel.value = clientId;
-  }
+  // Removemos a tentativa manual de atribuir o value e chamamos a função que constrói a lista:
+  populateEditTaskClients(clientId);
 
   try { currentTaskChecklist = checklistStr ? JSON.parse(decodeURIComponent(checklistStr)) : []; }
   catch (e) { currentTaskChecklist = []; }
@@ -359,7 +437,7 @@ function openEditTask(id, title, tag, due, col, checklistStr, attachmentsStr, cl
   catch (e) { currentTaskAttachments = []; }
   renderAttachments();
 
-  const modal = $('task-edit-modal');
+  const modal = document.getElementById('task-edit-modal');
   modal.style.display = 'flex';
 }
 
@@ -447,11 +525,20 @@ async function saveTaskEdit() {
   const tag = document.getElementById('edit-task-tag').value;
   const col = document.getElementById('edit-task-col').value;
   const due = document.getElementById('edit-task-due').value.trim();
-  if (!title) { alert('O título é obrigatório.'); return; }
 
+  if (!title) {
+    alert('O título é obrigatório.');
+    return;
+  }
+
+  // Captura do Cliente
   const editClientSel = document.getElementById('edit-task-client');
   const clientId = editClientSel ? editClientSel.value : '';
-  const clientName = editClientSel && editClientSel.selectedIndex > 0 ? editClientSel.options[editClientSel.selectedIndex].text : '';
+
+  // Só pega o nome se realmente houver um clientId selecionado válido
+  const clientName = (clientId && editClientSel && editClientSel.selectedIndex > 0)
+    ? editClientSel.options[editClientSel.selectedIndex].text
+    : '';
 
   const btn = document.querySelector('#task-edit-modal .btn-post');
   if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
@@ -461,15 +548,21 @@ async function saveTaskEdit() {
       title,
       tag,
       column: col,
-      due,
+      due: due || null, // Evita enviar string vazia para datas
       clientId,
       clientName,
-      checklist: currentTaskChecklist,
-      attachments: currentTaskAttachments
+      checklist: typeof currentTaskChecklist !== 'undefined' ? currentTaskChecklist : [],
+      attachments: typeof currentTaskAttachments !== 'undefined' ? currentTaskAttachments : []
     });
-    closeEditTask();
-  } catch (e) { alert('Erro ao salvar: ' + e.message); }
-  finally { if (btn) { btn.textContent = 'Salvar Tarefa'; btn.disabled = false; } }
+
+    if (typeof closeEditTask === 'function') {
+      closeEditTask();
+    }
+  } catch (e) {
+    alert('Erro ao salvar: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = 'Salvar Tarefa'; btn.disabled = false; }
+  }
 }
 
 function closeEditTask() { $('task-edit-modal').style.display = 'none'; }
@@ -500,22 +593,22 @@ function carregarClientesNoSelect() {
   }
 
   unsubClientesSelect = db.collection('clients')
-  .where('tenantId', '==', currentUser.tenantId) // ADICIONADO
-  .orderBy('razao')
-  .onSnapshot(snap => { // ... {
-    let optionsHTML = '<option value="">Sem cliente</option>';
+    .where('tenantId', '==', currentUser.tenantId) // ADICIONADO
+    .orderBy('razao')
+    .onSnapshot(snap => { // ... {
+      let optionsHTML = '<option value="">Sem cliente</option>';
 
-    snap.forEach(doc => {
-      const cliente = doc.data();
-      const nomeCliente = cliente.razao || 'Cliente sem nome';
-      optionsHTML += `<option value="${doc.id}">${nomeCliente}</option>`;
+      snap.forEach(doc => {
+        const cliente = doc.data();
+        const nomeCliente = cliente.razao || 'Cliente sem nome';
+        optionsHTML += `<option value="${doc.id}">${nomeCliente}</option>`;
+      });
+
+      clientSel.innerHTML = optionsHTML;
+      editClientSel.innerHTML = optionsHTML;
+    }, error => {
+      console.error("Erro ao carregar clientes:", error);
     });
-
-    clientSel.innerHTML = optionsHTML;
-    editClientSel.innerHTML = optionsHTML;
-  }, error => {
-    console.error("Erro ao carregar clientes:", error);
-  });
 }
 
 // ════════════════════════════════════════════
@@ -679,5 +772,33 @@ async function importarPlanilhaTarefas(event) {
       btn.innerHTML = textoOriginal;
       btn.disabled = false;
     }
+  }
+}
+
+async function populateEditTaskClients(currentClientId = '') {
+  const select = document.getElementById('edit-task-client');
+  if (!select || !currentUser?.tenantId) return;
+
+  select.innerHTML = '<option value="">Sem cliente selecionado</option>';
+
+  try {
+    const snap = await db.collection('clients')
+      .where('tenantId', '==', currentUser.tenantId)
+      .get();
+
+    snap.forEach(doc => {
+      const c = doc.data();
+      const opt = document.createElement('option');
+      opt.value = doc.id;
+      opt.textContent = c.razao || c.nome || 'Cliente';
+
+      // Pré-seleciona o cliente que já estava salvo na tarefa
+      if (doc.id === currentClientId) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Erro ao carregar clientes:', err);
   }
 }

@@ -2,11 +2,13 @@
 const $ = id => document.getElementById(id);
 const $$ = sel => document.querySelectorAll(sel);
 
+
 // ── Permissão centralizada ───────────────────────────────────
 const isGestor = () => (currentUser?.role || '').toLowerCase() === 'gestor';
 
+
 // ════════════════════════════════════════════
-//  ESTADO GLOBAL
+// ESTADO GLOBAL
 // ════════════════════════════════════════════
 let currentUser = null;
 let currentChannel = 'geral';
@@ -21,7 +23,7 @@ let unsubAgendaRP = null;
 let unsubUsersSidebar = null;
 let unsubUsersAdmin = null;
 let unreadObservers = {};
-let statusObservers = {}; // 🔴 NOVO: para limpar listeners de status
+let statusObservers = {};
 let dmBootstrapped = {};
 let activeReply = null;
 let pendingFile = null;
@@ -30,24 +32,37 @@ notifySound.volume = 0.5;
 let typingTimeout = null;
 let unsubTyping = null;
 let _lastSendTs = 0;
-let lastActiveTab = 'chat';
+let lastActiveTab = 'mural';
 let lastActiveTabBtn = null;
-let profilePreviousTab = 'chat';
+let profilePreviousTab = 'mural';
 let profilePreviousTabBtn = null;
 
+
 // ════════════════════════════════════════════
-//  UI & SIDEBAR
+// UI & SIDEBAR
 // ════════════════════════════════════════════
 function toggleSidebar() {
-  $('sidebar').classList.toggle('open');
-  $('sidebar-overlay').classList.toggle('open');
+  $('sidebar')?.classList.toggle('open');
+  $('sidebar-overlay')?.classList.toggle('open');
 }
+
 function closeSidebar() {
-  $('sidebar').classList.remove('open');
-  $('sidebar-overlay').classList.remove('open');
+  $('sidebar')?.classList.remove('open');
+  $('sidebar-overlay')?.classList.remove('open');
 }
+
 function toggleRightPanel() {
-  $('right-panel').classList.toggle('open');
+  $('right-panel')?.classList.toggle('open');
+}
+
+function toggleMainMenu() {
+  $('main-menu')?.classList.toggle('open');
+  $('main-menu-overlay')?.classList.toggle('open');
+}
+
+function closeMainMenu() {
+  $('main-menu')?.classList.remove('open');
+  $('main-menu-overlay')?.classList.remove('open');
 }
 
 function openProfile() {
@@ -57,7 +72,9 @@ function openProfile() {
   }
 
   profilePreviousTab = lastActiveTab || 'chat';
-  profilePreviousTabBtn = lastActiveTabBtn || document.querySelector(`.tab-btn.active`);
+
+  // Seleciona o botão ativo na nova navegação
+  profilePreviousTabBtn = lastActiveTabBtn || document.querySelector(`.nav-item.active`);
 
   switchTab('perfil');
 
@@ -78,30 +95,48 @@ function openProfile() {
 
 function updateDate() {
   const d = new Date();
-  const dateEl = document.getElementById('live-date');
+  const dateEl = $('live-date');
   if (dateEl) {
     dateEl.textContent = d.toLocaleDateString('pt-BR', {
-      weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
     });
   }
 }
 updateDate();
-window.addEventListener('load', () => { updateDate(); setInterval(updateDate, 60000); });
+window.addEventListener('load', () => {
+  updateDate();
+  setInterval(updateDate, 60000);
+});
 
 function switchTab(id, btn = null) {
+  // Esconde todos os painéis
   $$('.tab-panel').forEach(p => p.classList.remove('active'));
-  $$('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  // Remove a classe active de todos os novos itens da sidebar
+  $$('.nav-item').forEach(b => b.classList.remove('active'));
 
   const panel = document.getElementById('tab-' + id);
   if (!panel) return;
 
   panel.classList.add('active');
 
-  const resolvedBtn = btn || document.querySelector(`.tab-btn[onclick*="switchTab('${id}'"]`);
+  // Adiciona 'active' no botão correspondente da sidebar
+  const resolvedBtn = btn || document.querySelector(`.nav-item[data-tab="${id}"]`);
   if (resolvedBtn) resolvedBtn.classList.add('active');
 
   lastActiveTab = id;
 
+  // 👇 NOVA LÓGICA: Esconde ou mostra os canais na barra lateral
+  const chatSections = document.getElementById('sidebar-chat-sections');
+  if (chatSections) {
+    chatSections.style.display = (id === 'chat') ? 'flex' : 'none';
+  }
+  // 👆 FIM DA NOVA LÓGICA
+
+  // Animações dos painéis
   if (id === 'usuarios') {
     const usersBox = panel.querySelector('.users-admin-wrap');
     if (usersBox) {
@@ -146,12 +181,11 @@ function switchTab(id, btn = null) {
       clientsBox.classList.add('users-box-enter');
     }
   }
-
 }
 
 function toggleTheme() {
   const body = document.body;
-  const btn = document.getElementById('btn-theme');
+  const btn = $('btn-theme');
   if (body.classList.contains('light')) {
     body.classList.remove('light');
     if (btn) btn.textContent = '🌙';
@@ -168,18 +202,24 @@ function toggleTheme() {
   if (savedTheme === 'light') {
     document.body.classList.add('light');
     document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('btn-theme');
+      const btn = $('btn-theme');
       if (btn) btn.textContent = '☀️';
     });
   }
 })();
 
 function escHtml(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
+
 // ════════════════════════════════════════════
-//  SISTEMA DE PRESENÇA ONLINE/OFFLINE
+// SISTEMA DE PRESENÇA ONLINE/OFFLINE
 // ════════════════════════════════════════════
 function initPresence() {
   if (!currentUser) return;
@@ -204,11 +244,9 @@ function initPresence() {
   });
 }
 
+
 // ════════════════════════════════════════════
-//  CARREGAR USUÁRIOS (BARRA LATERAL)
-// ════════════════════════════════════════════
-// ════════════════════════════════════════════
-//  CARREGAR USUÁRIOS (BARRA LATERAL)
+// CARREGAR USUÁRIOS (BARRA LATERAL)
 // ════════════════════════════════════════════
 function loadUsers() {
   if (unsubUsersSidebar) unsubUsersSidebar();
@@ -243,20 +281,21 @@ function loadUsers() {
         div.dataset.uid = uid;
 
         if (!isMe) {
-          div.onclick = () => { openDM(uid, nameStr, div); closeSidebar(); };
-
-          // 🔥 CORREÇÃO 1: Cria o ID da sala diretamente aqui, sem depender do chat.js (Restaura o Histórico)
-          const roomId = typeof getDmDocId === 'function'
-            ? getDmDocId(currentUser.uid, uid)
-            : (currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`);
-
           div.onclick = async () => {
+            const roomId = typeof getDmDocId === 'function'
+              ? getDmDocId(currentUser.uid, uid)
+              : (currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`);
+
             if (typeof ensureDmRoomExists === 'function') {
               await ensureDmRoomExists(roomId, uid).catch(() => { });
             }
             openDM(uid, nameStr, div);
             closeSidebar();
           };
+
+          const roomId = typeof getDmDocId === 'function'
+            ? getDmDocId(currentUser.uid, uid)
+            : (currentUser.uid < uid ? `${currentUser.uid}_${uid}` : `${uid}_${currentUser.uid}`);
 
           if (!unreadObservers[roomId]) {
             unreadObservers[roomId] = db.collection('directMessages').doc(roomId).collection('messages')
@@ -267,7 +306,10 @@ function loadUsers() {
                   if (m.authorId !== currentUser.uid && (!m.readBy || !m.readBy.includes(currentUser.uid))) dmCount++;
                 });
                 const b = div.querySelector('.unread-badge');
-                if (b) { b.textContent = dmCount; b.style.display = dmCount > 0 ? 'inline-block' : 'none'; }
+                if (b) {
+                  b.textContent = dmCount;
+                  b.style.display = dmCount > 0 ? 'inline-block' : 'none';
+                }
 
                 const isFirstSnapshot = !dmBootstrapped[roomId];
 
@@ -281,7 +323,7 @@ function loadUsers() {
                     notifySound.play().catch(() => { });
                     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                       const notification = new Notification(`ContaHub: Nova mensagem de ${nameStr}`, {
-                        body: newIncoming.text || '📎 Ficheiro anexado',
+                        body: newIncoming.text || '📎 Arquivo anexado',
                         icon: 'logo-contahub.png'
                       });
                       notification.onclick = function () { window.focus(); };
@@ -340,8 +382,9 @@ function loadUsers() {
     });
 }
 
+
 // ════════════════════════════════════════════
-//  AUTH & INICIALIZAÇÃO DO SISTEMA
+// AUTH & INICIALIZAÇÃO DO SISTEMA
 // ════════════════════════════════════════════
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
@@ -380,22 +423,20 @@ auth.onAuthStateChanged(async user => {
     }
 
     if (!currentUser.tenantId) {
-      console.warn("⚠️ Utilizador sem tenantId!");
+      console.warn("⚠️ Usuário sem tenantId!");
       currentUser.tenantId = user.uid;
     }
   } catch (e) {
     currentUser = { uid: user.uid, name: 'Gestor', surname: '', initials: 'GE', color: '#c9a84c', role: 'gestor', tenantId: user.uid };
   }
 
-  // Atualiza a interface
   $('user-avatar').textContent = currentUser.initials || 'US';
   $('user-avatar').style.background = currentUser.color || '#3a4060';
   $('user-name-text').textContent = currentUser.name + ' ' + (currentUser.surname || '');
 
-  // Inicia os serviços principais
   initPresence();
-  loadUsers(); // 🟢 ÚNICA CHAMADA
-  if (typeof initUnreadCounters === 'function') initUnreadCounters()
+  loadUsers();
+  if (typeof initUnreadCounters === 'function') initUnreadCounters();
 
   if (typeof getChannelDocId === 'function' && typeof subscribeChat === 'function') {
     const roomDocId = getChannelDocId(currentChannel);
@@ -407,9 +448,10 @@ auth.onAuthStateChanged(async user => {
   if (typeof subscribeClients === 'function') subscribeClients();
 
   if (isGestor()) {
-    const btnGerar = document.getElementById('btn-gerar-tarefas');
+    const btnGerar = $('btn-gerar-tarefas');
     if (btnGerar) btnGerar.style.display = 'inline-block';
   }
+  switchTab('mural');
 
   setTimeout(() => {
     const loader = $('loading-overlay');
@@ -418,8 +460,9 @@ auth.onAuthStateChanged(async user => {
   }, 600);
 });
 
+
 // ════════════════════════════════════════════
-//  LOGOUT (com cleanup completo)
+// LOGOUT (com cleanup completo)
 // ════════════════════════════════════════════
 async function doLogout() {
   if (currentUser) {
@@ -429,7 +472,6 @@ async function doLogout() {
     });
   }
 
-  // Limpa todos os listeners
   if (unsubChat) unsubChat();
   if (unsubMural) unsubMural();
   if (unsubTasks) unsubTasks();
@@ -440,17 +482,17 @@ async function doLogout() {
   if (unsubTyping) { unsubTyping(); unsubTyping = null; }
 
   Object.values(unreadObservers).forEach(u => u());
-  Object.values(statusObservers).forEach(u => u()); // 🟢 LIMPA STATUS LISTENERS
+  Object.values(statusObservers).forEach(u => u());
 
-  // Reseta objetos de listeners
   unreadObservers = {};
   statusObservers = {};
 
   await auth.signOut();
 }
 
+
 // ════════════════════════════════════════════
-//  NOTIFICAÇÕES E ALERTAS
+// NOTIFICAÇÕES E ALERTAS
 // ════════════════════════════════════════════
 document.body.addEventListener('click', () => {
   if (typeof Notification !== 'undefined') {
@@ -462,10 +504,6 @@ document.body.addEventListener('click', () => {
   }
 }, { once: true });
 
-// ... (resto das funções permanecem iguais: showStartupAlert, closeStartupAlert, openLightbox, etc.)
-
-// ════════════════════════════════════════════
-//  ADMINISTRAÇÃO DE USUÁRIOS (Gestor)
 // ════════════════════════════════════════════
 let editingUserId = null;
 
@@ -1029,25 +1067,76 @@ function closeCreateClientModal(event) {
   if (modal) modal.style.display = 'none';
 }
 
-function submitCreateClient() {
-  const razaoSrc = document.getElementById('new-client-razao');
-  const cnpjSrc = document.getElementById('new-client-cnpj');
-  const regimeSrc = document.getElementById('new-client-regime');
-  const codigoSrc = document.getElementById('new-client-codigo');
-  const filialSrc = document.getElementById('new-client-filial');
+async function submitCreateClient() {
+  const razao = (document.getElementById('new-client-razao')?.value || '').trim();
+  const cnpj = (document.getElementById('new-client-cnpj')?.value || '').trim();
+  const regime = document.getElementById('new-client-regime')?.value || 'Simples Nacional';
+  const codigo = (document.getElementById('new-client-codigo')?.value || '').trim();
+  const filial = (document.getElementById('new-client-filial')?.value || '').trim();
+  const feedback = document.getElementById('new-client-feedback');
 
-  const razaoDst = document.getElementById('client-razao');
-  const cnpjDst = document.getElementById('client-cnpj');
-  const regimeDst = document.getElementById('client-regime');
-  const codigoDst = document.getElementById('client-codigo');
-  const filialDst = document.getElementById('client-filial');
+  if (!razao) {
+    if (feedback) {
+      feedback.textContent = 'A Razão Social é obrigatória.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+    return;
+  }
 
-  if (razaoDst) razaoDst.value = razaoSrc?.value || '';
-  if (cnpjDst) cnpjDst.value = cnpjSrc?.value || '';
-  if (regimeDst) regimeDst.value = regimeSrc?.value || 'Simples Nacional';
-  if (codigoDst) codigoDst.value = codigoSrc?.value || '';
-  if (filialDst) filialDst.value = filialSrc?.value || '';
+  const btn = document.querySelector('#client-create-modal .btn-post');
+  if (btn) {
+    btn.textContent = 'Salvando...';
+    btn.disabled = true;
+  }
 
-  addClient();
-  closeCreateClientModal();
+  try {
+    // Salva direto no Firestore ignorando o addClient antigo
+    await db.collection('clients').add({
+      razao,
+      cnpj,
+      regime,
+      codigo,
+      filial,
+      tenantId: currentUser.tenantId,
+      authorId: currentUser.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    if (feedback) {
+      feedback.textContent = 'Cliente cadastrado com sucesso!';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--green)';
+    }
+
+    setTimeout(() => {
+      closeCreateClientModal();
+      if (btn) {
+        btn.textContent = 'Criar Cliente';
+        btn.disabled = false;
+      }
+    }, 700);
+
+  } catch (err) {
+    console.error('Erro ao criar cliente:', err);
+    if (feedback) {
+      feedback.textContent = err.message || 'Erro ao cadastrar cliente.';
+      feedback.style.display = 'block';
+      feedback.style.color = 'var(--red)';
+    }
+    if (btn) {
+      btn.textContent = 'Criar Cliente';
+      btn.disabled = false;
+    }
+  }
+}
+
+function toggleMainMenu() {
+  $('main-menu')?.classList.toggle('open');
+  $('main-menu-overlay')?.classList.toggle('open');
+}
+
+function closeMainMenu() {
+  $('main-menu')?.classList.remove('open');
+  $('main-menu-overlay')?.classList.remove('open');
 }

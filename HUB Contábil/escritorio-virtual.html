@@ -59,41 +59,61 @@
   <div class="workspace">
 
     <div class="sidebar" id="sidebar">
+
       <div class="sidebar-section">
-        <div class="sidebar-label">Canais</div>
-        <div class="channel-item active" data-channel="geral" onclick="switchChannel(this);closeSidebar();"
-          id="btn-chan-geral">
-          <span class="channel-icon">#</span> Chat Geral <span class="unread-badge"></span>
+        <div class="sidebar-label">Navegação</div>
+        <div class="nav-item active" data-tab="chat" onclick="switchTab('chat', this); closeSidebar();">
+          <i class="fas fa-comments"></i> Chat
         </div>
-        <div class="channel-item" data-channel="fiscal" onclick="switchChannel(this);closeSidebar();"
-          id="btn-chan-fiscal">
-          <span class="channel-icon">#</span> Dep. Fiscal <span class="unread-badge"></span>
+        <div class="nav-item" data-tab="mural" onclick="switchTab('mural', this); closeSidebar();">
+          <i class="fas fa-thumbtack"></i> Mural
         </div>
-        <div class="channel-item" data-channel="dp" onclick="switchChannel(this);closeSidebar();" id="btn-chan-dp">
-          <span class="channel-icon">#</span> Dep. Pessoal <span class="unread-badge"></span>
+        <div class="nav-item" data-tab="tarefas" onclick="switchTab('tarefas', this); closeSidebar();">
+          <i class="fas fa-check-double"></i> Tarefas
         </div>
-        <div class="channel-item" data-channel="contabil" onclick="switchChannel(this);closeSidebar();"
-          id="btn-chan-contabil">
-          <span class="channel-icon">#</span> Dep. Contábil <span class="unread-badge"></span>
+        <div class="nav-item" data-tab="agenda" onclick="switchTab('agenda', this); closeSidebar();">
+          <i class="fas fa-calendar-alt"></i> Agenda
+        </div>
+        <div class="nav-item" data-tab="clientes" onclick="switchTab('clientes', this); closeSidebar();">
+          <i class="fas fa-building"></i> Clientes
+        </div>
+        <div class="nav-item" id="btn-tab-usuarios" data-tab="usuarios"
+          onclick="switchTab('usuarios', this); closeSidebar();" style="display:none">
+          <i class="fas fa-users-cog"></i> Usuários
         </div>
       </div>
-      <div class="sidebar-section" style="margin-top:8px">
-        <div class="sidebar-label">Equipe Online (Mensagem Direta)</div>
+
+      <div id="sidebar-chat-sections" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Canais</div>
+          <div class="channel-item active" data-channel="geral" onclick="switchChannel(this);closeSidebar();"
+            id="btn-chan-geral">
+            <span class="channel-icon">#</span> Chat Geral <span class="unread-badge"></span>
+          </div>
+          <div class="channel-item" data-channel="fiscal" onclick="switchChannel(this);closeSidebar();"
+            id="btn-chan-fiscal">
+            <span class="channel-icon">#</span> Dep. Fiscal <span class="unread-badge"></span>
+          </div>
+          <div class="channel-item" data-channel="dp" onclick="switchChannel(this);closeSidebar();" id="btn-chan-dp">
+            <span class="channel-icon">#</span> Dep. Pessoal <span class="unread-badge"></span>
+          </div>
+          <div class="channel-item" data-channel="contabil" onclick="switchChannel(this);closeSidebar();"
+            id="btn-chan-contabil">
+            <span class="channel-icon">#</span> Dep. Contábil <span class="unread-badge"></span>
+          </div>
+        </div>
+
+        <div class="sidebar-section" style="margin-top:8px">
+          <div class="sidebar-label">Equipe Online (Mensagem Direta)</div>
+        </div>
+
+        <div class="user-list" id="users-sidebar"></div>
+
       </div>
-      <div class="user-list" id="users-sidebar"></div>
     </div>
 
     <div class="main-area">
-      <div class="main-tabs">
-        <button class="tab-btn" onclick="switchTab('chat',this)"><i class="fas fa-comments"></i> Chat</button>
-        <button class="tab-btn" onclick="switchTab('mural',this)"><i class="fas fa-thumbtack"></i> Mural</button>
-        <button class="tab-btn" onclick="switchTab('tarefas',this)"><i class="fas fa-check-double"></i> Tarefas</button>
-        <button class="tab-btn" onclick="switchTab('agenda',this)"><i class="fas fa-calendar-alt"></i> Agenda</button>
-        <button class="tab-btn" onclick="switchTab('clientes',this)"><i class="fas fa-building"></i> Clientes</button>
-        <!-- <button class="tab-btn" onclick="switchTab('mapa',this)"><i class="fas fa-map-marked-alt"></i> Mapa</button> -->
-        <button class="tab-btn" id="btn-tab-usuarios" onclick="switchTab('usuarios',this)" style="display:none"><i
-            class="fas fa-users-cog"></i> Usuários</button>
-      </div>
 
       <div class="tab-panel active" id="tab-chat">
         <div class="chat-header-bar">
@@ -153,8 +173,26 @@
 
       <div class="tab-panel" id="tab-tarefas">
         <div class="tasks-window">
-          <div class="sector-tabs" id="task-sector-tabs"></div>
 
+          <div class="tasks-header">
+            <div class="tasks-header-title">
+              <h3>Gestão de Tarefas</h3>
+              <span>Acompanhe as demandas do escritório</span>
+            </div>
+            
+            <div class="tasks-header-actions" style="display: flex; gap: 10px; align-items: center;">
+              
+              <button class="btn-post" style="background: var(--surface); border: 1px solid var(--border); color: var(--text);" onclick="document.getElementById('import-tasks-file').click()">
+                📁 Importar Planilha
+              </button>
+              <input type="file" id="import-tasks-file" accept=".xlsx, .xls, .csv" style="display:none" onchange="importTasks(event)">
+              
+              <button class="btn-post tasks-new-btn" onclick="openCreateTaskModal()">
+                + Nova Tarefa
+              </button>
+            </div>
+          </div>
+          <div class="sector-tabs" id="task-sector-tabs"></div>
           <div style="padding: 10px 16px 0; display:flex; gap:8px;">
             <button onclick="applyTaskFilter('todas', this)" class="btn-post filter-btn"
               style="background: rgba(201, 168, 76, 0.15); color: var(--accent2); border: 1px solid var(--accent);">📋
@@ -186,7 +224,6 @@
           </div>
 
           <div class="tasks-add">
-            <!-- seus campos e botões atuais -->
           </div>
         </div>
       </div>
@@ -290,30 +327,6 @@
           </div>
         </div>
       </div>
-
-      <!-- <div class="tab-panel" id="tab-mapa" style="position: relative;">
-        <div class="users-admin-header" style="border-bottom: 1px solid var(--border); padding: 16px 20px;">
-          <h2>🗺️ Escritório Virtual</h2>
-          <span style="font-size:12px;color:var(--muted)">Use as setas (ou W A S D) no PC, ou o Joystick no
-            celular.</span>
-        </div>
-        <div style="padding: 16px 16px 0 16px;">
-          <div id="map-status-bar" class="map-status-bar"></div>
-        </div>
-        <div class="map-container">
-          <div id="virtual-office-map"></div>
-        </div>
-        <div id="mobile-controls" class="mobile-controls">
-          <div class="joystick-zone">
-            <div class="joystick-base" id="joystick-base">
-              <div class="joystick-stick" id="joystick-stick"></div>
-            </div>
-          </div>
-          <button id="btn-enter-room" class="btn-enter-room">
-            <i class="fas fa-sign-in-alt"></i> <span>Entrar</span>
-          </button>
-        </div>
-      </div> -->
 
       <div class="tab-panel" id="tab-usuarios">
         <div class="users-admin-wrap">
@@ -841,14 +854,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <script src="js/firebase-config.js"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/app.js?v=4"></script>
   <script src="js/chat.js"></script>
   <script src="js/kanban-mural.js?v=4"></script>
   <script src="js/agenda-clientes.js?v=3"></script>
   <script src="js/mapa-virtual.js?v=11"></script>
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@latest/dist/browser.js"></script>
-
-
 
 </body>
 
